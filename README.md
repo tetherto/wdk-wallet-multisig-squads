@@ -229,9 +229,9 @@ no rent collector, so rent stays locked for the life of the accounts rather than
 reclaimable on close.
 
 > [!NOTE]
-> An approval that a coordinator is still circulating has not been paid for yet: the `fee` it
-> reports is whatever the coordinator answered with, and the transaction that eventually carries it
-> pays once for the batch.
+> An approval that a coordinator is still circulating reports `transaction: undefined`: nothing
+> has been broadcast or charged. The call that broadcasts the completed bundle returns its
+> transaction hash and network fee, paid once for the batch by the bundle's fee payer.
 
 ## Squads Protocol Version
 

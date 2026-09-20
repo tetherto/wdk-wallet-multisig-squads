@@ -300,7 +300,7 @@ describe('coordinators', () => {
       transport.clear()
     })
 
-    it('collects two approvals into one transaction and resolves the first vote with its hash', async () => {
+    it('reports a transaction only when the collected approvals are broadcast', async () => {
       const first = await accounts[0].approveProposal(proposalId)
 
       expect(first).toEqual({
@@ -309,7 +309,7 @@ describe('coordinators', () => {
         pendingConfirmations: 1,
         threshold: 2,
         status: 'pending',
-        transaction: { hash: '', fee: 0n }
+        transaction: undefined
       })
       expect(await accounts[0].getProposal(proposalId)).toMatchObject({ approved: [] })
 

@@ -3186,7 +3186,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
         pendingConfirmations: 1,
         threshold: 2,
         status: 'pending',
-        transaction: { hash: '', fee: 0n }
+        transaction: undefined
       })
     })
 
@@ -3223,6 +3223,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
       expect(result.pendingConfirmations).toBe(1)
       expect(result.threshold).toBe(2)
       expect(result.status).toBe('pending')
+      expect(result.transaction).toBeUndefined()
     })
 
     it('sends the bundle its signature completes, as the bytes it already is', async () => {
