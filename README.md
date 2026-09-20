@@ -161,6 +161,9 @@ sign: the account adds the member's signature itself, after checking the bundle.
 with anything else your implementation needs and keep it however you like; the interface says nothing
 about how an implementation stores it.
 
+In `confirmProposal`, verify the decoded signature against `signerAddress` and the held bundle's
+exact `messageBytes` before merging it. Reject invalid signatures without changing the bundle.
+
 What the account does with what you return, which is the part you can rely on:
 
 - `getProposal` answering null leaves the member voting alone, exactly as with no coordinator

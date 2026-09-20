@@ -46,6 +46,11 @@ export class IMultisigCoordinator {
    * Takes this member's signature over the bundle `getProposal` handed out, for the coordinator to
    * put in the slot the factory's `signerAddress` names.
    *
+   * Before merging it, the implementation must decode the base58 signature and verify it against
+   * that member's public key (`signerAddress`) and the exact `messageBytes` of the bundle it holds.
+   * Reject an invalid signature without changing the held bundle; a signature over different
+   * message bytes must not be accepted.
+   *
    * @param {string} proposalId - The proposal (transaction index) id.
    * @param {string} signature - The member's signature over the bundle, base58 encoded.
    * @returns {Promise<void>}
