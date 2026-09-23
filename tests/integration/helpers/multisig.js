@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto'
 
 import { createSolanaRpc } from '@solana/rpc'
 
-import WalletManagerMultisigSolanaSquads from '@tetherto/wdk-protocol-multisig-squads'
+import WalletManagerMultisigSquads from '@tetherto/wdk-wallet-multisig-squads'
 
 import { LAMPORTS_PER_SOL, airdrop, confirmTransaction } from './chain.js'
 
@@ -45,7 +45,7 @@ export function sorted (addresses) {
 export async function createWallet (options = {}) {
   const { members = 1, config: extraConfig = {} } = options
 
-  const manager = new WalletManagerMultisigSolanaSquads(SEED_PHRASE, {
+  const manager = new WalletManagerMultisigSquads(SEED_PHRASE, {
     provider: TEST_RPC_URL,
     commitment: 'confirmed',
     createKeySecret: new Uint8Array(randomBytes(CREATE_KEY_SIZE)),

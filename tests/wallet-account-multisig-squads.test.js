@@ -27,7 +27,7 @@ import {
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash
 } from '@solana/transaction-messages'
-import { compileTransaction, getBase64EncodedWireTransaction, getTransactionDecoder, isFullySignedTransaction } from '@solana/transactions'
+import { compileTransaction, getTransactionDecoder, isFullySignedTransaction } from '@solana/transactions'
 
 import { AssertionError, MaximumFeeExceededError, NoSuchElementError, UnsupportedOperationError, ValueError } from '@tetherto/wdk-wallet'
 
@@ -35,12 +35,12 @@ import { AccountNotOwnerError, ThresholdNotMetError } from '@tetherto/wdk-wallet
 
 import { lookupTableAccount, rpcRequests, stubSolanaRpc } from './helpers/rpc.js'
 
-import WalletManagerMultisigSolanaSquads, {
-  WalletAccountMultisigSolanaSquads,
-  WalletAccountReadOnlyMultisigSolanaSquads,
+import WalletManagerMultisigSquads, {
+  WalletAccountMultisigSquads,
+  WalletAccountReadOnlyMultisigSquads,
   PERMISSION,
   SQUADS_PROGRAM_ADDRESS
-} from '@tetherto/wdk-protocol-multisig-squads'
+} from '@tetherto/wdk-wallet-multisig-squads'
 
 const TEST_SEED_PHRASE =
   'test walk nut penalty hip pave soap entry language right filter choice'
@@ -350,7 +350,7 @@ async function votingAccount ({
   proposal = {},
   staleTransactionIndex = 0n
 } = {}) {
-  const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+  const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
     provider: TEST_RPC_URL,
     multisigPdaOrCreateKey: TEST_MULTISIG_PDA
   })
@@ -394,7 +394,7 @@ async function configuringAccount ({
   configAuthority = null,
   deployed = true
 } = {}) {
-  const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+  const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
     provider: TEST_RPC_URL,
     multisigPdaOrCreateKey: TEST_MULTISIG_PDA
   })
@@ -565,7 +565,7 @@ function serveValue (value) {
   return { context: { slot: 1 }, value }
 }
 
-describe('WalletAccountMultisigSolanaSquads', () => {
+describe('WalletAccountMultisigSquads', () => {
   afterEach(() => {
     jest.restoreAllMocks()
   })
@@ -574,7 +574,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
   let account
 
   beforeEach(async () => {
-    wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+    wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
       provider: TEST_RPC_URL,
       commitment: 'confirmed',
       multisigPdaOrCreateKey: TEST_MULTISIG_PDA
@@ -599,13 +599,13 @@ describe('WalletAccountMultisigSolanaSquads', () => {
   it('returns a read-only view', async () => {
     const readOnly = await account.toReadOnlyAccount()
 
-    expect(readOnly).toBeInstanceOf(WalletAccountReadOnlyMultisigSolanaSquads)
+    expect(readOnly).toBeInstanceOf(WalletAccountReadOnlyMultisigSquads)
     expect(await readOnly.getAddress()).toBe(TEST_MULTISIG_PDA)
   })
 
   // The copy carries no createKeySecret, so an address it cannot name here it can never name.
   it('resolves the address into a read-only view of a create-key-secret account', async () => {
-    const deploying = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+    const deploying = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
       provider: TEST_RPC_URL,
       createKeySecret: CREATE_KEY_SECRET
     })
@@ -615,7 +615,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
   })
 
   it('refuses a read-only view of an account that names no multisig', async () => {
-    const nameless = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+    const nameless = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
       provider: TEST_RPC_URL
     })
 
@@ -689,7 +689,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
 
   describe('getCreateKey', () => {
     it('derives the create key from a 32-byte private key, synchronously', () => {
-      expect(WalletAccountMultisigSolanaSquads.getCreateKey(CREATE_KEY_SECRET)).toBe(CREATE_KEY)
+      expect(WalletAccountMultisigSquads.getCreateKey(CREATE_KEY_SECRET)).toBe(CREATE_KEY)
     })
 
     it('reads the create key out of a 64-byte keypair', () => {
@@ -698,21 +698,21 @@ describe('WalletAccountMultisigSolanaSquads', () => {
       keyPair.set(getBase58Encoder().encode(CREATE_KEY_SECRET), 0)
       keyPair.set(getBase58Encoder().encode(CREATE_KEY), 32)
 
-      expect(WalletAccountMultisigSolanaSquads.getCreateKey(keyPair)).toBe(CREATE_KEY)
+      expect(WalletAccountMultisigSquads.getCreateKey(keyPair)).toBe(CREATE_KEY)
     })
 
     it('agrees with the signer it would build', async () => {
-      const signer = await WalletAccountMultisigSolanaSquads.getCreateKeySigner(CREATE_KEY_SECRET)
+      const signer = await WalletAccountMultisigSquads.getCreateKeySigner(CREATE_KEY_SECRET)
 
-      expect(WalletAccountMultisigSolanaSquads.getCreateKey(CREATE_KEY_SECRET)).toBe(signer.address)
+      expect(WalletAccountMultisigSquads.getCreateKey(CREATE_KEY_SECRET)).toBe(signer.address)
     })
 
     it.each([[undefined], [new Uint8Array(31)]])('refuses %s', (bad) => {
-      expect(() => WalletAccountMultisigSolanaSquads.getCreateKey(bad)).toThrow(/createKeySecret/)
+      expect(() => WalletAccountMultisigSquads.getCreateKey(bad)).toThrow(/createKeySecret/)
     })
 
     it('knows the multisig address at construction', async () => {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         createKeySecret: CREATE_KEY_SECRET
       })
@@ -725,30 +725,30 @@ describe('WalletAccountMultisigSolanaSquads', () => {
 
   describe('getCreateKeySigner', () => {
     it('derives the create key from a 32-byte private key', async () => {
-      const { address } = await WalletAccountMultisigSolanaSquads.getCreateKeySigner(CREATE_KEY_SECRET)
+      const { address } = await WalletAccountMultisigSquads.getCreateKeySigner(CREATE_KEY_SECRET)
 
       expect(address).toBe(CREATE_KEY)
     })
 
     it('derives the same key from the 64-byte keypair', async () => {
-      const signer = await WalletAccountMultisigSolanaSquads.getCreateKeySigner(CREATE_KEY_SECRET)
+      const signer = await WalletAccountMultisigSquads.getCreateKeySigner(CREATE_KEY_SECRET)
       const keyPair = new Uint8Array(64)
 
       keyPair.set(new Uint8Array(32).fill(9), 0)
       keyPair.set(getBase58Encoder().encode(signer.address), 32)
 
-      const { address } = await WalletAccountMultisigSolanaSquads.getCreateKeySigner(keyPair)
+      const { address } = await WalletAccountMultisigSquads.getCreateKeySigner(keyPair)
 
       expect(address).toBe(CREATE_KEY)
     })
 
     it('refuses a missing secret', async () => {
-      await expect(WalletAccountMultisigSolanaSquads.getCreateKeySigner(undefined))
+      await expect(WalletAccountMultisigSquads.getCreateKeySigner(undefined))
         .rejects.toThrow('A `createKeySecret` is required to create a multisig. Provide it in the configuration.')
     })
 
     it('refuses a secret of the wrong length', async () => {
-      await expect(WalletAccountMultisigSolanaSquads.getCreateKeySigner(new Uint8Array(31)))
+      await expect(WalletAccountMultisigSquads.getCreateKeySigner(new Uint8Array(31)))
         .rejects.toThrow('Invalid createKeySecret of 31 bytes. Expected 32 or 64.')
     })
 
@@ -756,8 +756,8 @@ describe('WalletAccountMultisigSolanaSquads', () => {
       const short = new Uint8Array(31)
       const message = 'Invalid createKeySecret of 31 bytes. Expected 32 or 64.'
 
-      expect(() => WalletAccountMultisigSolanaSquads.getCreateKey(short)).toThrow(message)
-      await expect(WalletAccountMultisigSolanaSquads.getCreateKeySigner(short)).rejects.toThrow(message)
+      expect(() => WalletAccountMultisigSquads.getCreateKey(short)).toThrow(message)
+      await expect(WalletAccountMultisigSquads.getCreateKeySigner(short)).rejects.toThrow(message)
     })
   })
 
@@ -774,7 +774,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
      * @returns {Promise<{ account: Object, sendTransaction: Function, rpc: Object }>}
      */
     async function deployingAccount ({ deployed = false, config = {} } = {}) {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         createKeySecret: CREATE_KEY_SECRET,
         ...config
@@ -868,7 +868,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
     })
 
     it('throws without a createKeySecret', async () => {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -1004,7 +1004,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
       timeLock = 0,
       config = {}
     } = {}) {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA,
         ...config
@@ -1430,7 +1430,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
         timeLock = 0,
         transaction = vaultTransactionAccountValue()
       } = {}) {
-        const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+        const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
           provider: TEST_RPC_URL,
           multisigPdaOrCreateKey: TEST_MULTISIG_PDA
         })
@@ -1543,7 +1543,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
 
       it('surfaces a dead address lookup table rather than going inert', async () => {
         const TABLE = '7Np41oeYqPefeNQEHSv1UDhYrehxin3NStELsSKCT4K2'
-        const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+        const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
           provider: TEST_RPC_URL,
           multisigPdaOrCreateKey: TEST_MULTISIG_PDA
         })
@@ -2523,7 +2523,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
       now = 0n,
       deployed = true
     } = {}) {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -2697,7 +2697,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
     })
 
     it('de-signs the ephemeral signers a message declares', async () => {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL, multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
       const probe = await wallet.getAccount(0)
@@ -2910,7 +2910,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
      * @returns {Promise<{ account: Object, sendTransaction: Function, rpc: Object }>}
      */
     async function transferringAccount ({ recipientHasAta = true, config = {} } = {}) {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA,
         ...config
@@ -3080,7 +3080,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
         })
       }
 
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA,
         coordinator: (config) => {
@@ -3108,7 +3108,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
     })
 
     it('has no coordinator when the configuration names none', async () => {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -3680,7 +3680,7 @@ describe('WalletAccountMultisigSolanaSquads', () => {
      * @returns {Promise<{ account: Object, rpc: Object }>}
      */
     async function quotingAccount (config = { createKeySecret: CREATE_KEY_SECRET }) {
-      const wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL,
         commitment: 'confirmed',
         ...config

@@ -32,37 +32,37 @@
 // ============================================
 // Re-export types from this package
 // ============================================
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SolanaMultisigSquadsSigningConfig} SolanaMultisigSquadsSigningConfig */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SolanaMultisigSquadsConfig} SolanaMultisigSquadsConfig */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SolanaMultisigSquadsReadOnlyConfig} SolanaMultisigSquadsReadOnlyConfig */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SolanaMultisigInfo} SolanaMultisigInfo */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SolanaMultisigProposal} SolanaMultisigProposal */
-/** @typedef {import('./src/wallet-account-multisig-solana-squads.js').SolanaMultisigProposalResult} SolanaMultisigProposalResult */
-/** @typedef {import('./src/wallet-account-multisig-solana-squads.js').SolanaMultisigTransactionOptions} SolanaMultisigTransactionOptions */
-/** @typedef {import('./src/wallet-account-multisig-solana-squads.js').SolanaMultisigAddOwnerOptions} SolanaMultisigAddOwnerOptions */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletSigningConfig} MultisigSquadsWalletSigningConfig */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletConfig} MultisigSquadsWalletConfig */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletReadOnlyConfig} MultisigSquadsWalletReadOnlyConfig */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').MultisigSquadsInfo} MultisigSquadsInfo */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').MultisigSquadsProposal} MultisigSquadsProposal */
+/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsProposalResult} MultisigSquadsProposalResult */
+/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsTransactionOptions} MultisigSquadsTransactionOptions */
+/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsAddOwnerOptions} MultisigSquadsAddOwnerOptions */
 /** @typedef {import('./src/coordinators/index.js').MultisigCoordinatorFactory} MultisigCoordinatorFactory */
 
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsMember} SquadsMember */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsMultisigAccount} SquadsMultisigAccount */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsProposalAccount} SquadsProposalAccount */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsAddressTableLookup} SquadsAddressTableLookup */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsTransactionMessage} SquadsTransactionMessage */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsTransactionKind} SquadsTransactionKind */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsConfigActionKind} SquadsConfigActionKind */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsConfigAction} SquadsConfigAction */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsTransactionAccount} SquadsTransactionAccount */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsProgramConfig} SquadsProgramConfig */
-/** @typedef {import('./src/wallet-account-read-only-multisig-solana-squads.js').SquadsProposalContext} SquadsProposalContext */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsMember} SquadsMember */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsMultisigAccount} SquadsMultisigAccount */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsProposalAccount} SquadsProposalAccount */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsAddressTableLookup} SquadsAddressTableLookup */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsTransactionMessage} SquadsTransactionMessage */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsTransactionKind} SquadsTransactionKind */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsConfigActionKind} SquadsConfigActionKind */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsConfigAction} SquadsConfigAction */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsTransactionAccount} SquadsTransactionAccount */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsProgramConfig} SquadsProgramConfig */
+/** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsProposalContext} SquadsProposalContext */
 
 // ============================================
 // Export classes and constants
 // ============================================
 
-export { default } from './src/wallet-manager-multisig-solana-squads.js'
+export { default } from './src/wallet-manager-multisig-squads.js'
 
-export { default as WalletAccountReadOnlyMultisigSolanaSquads, PROPOSAL_DATA_MASK, SQUADS_PROGRAM_ADDRESS, TRANSACTION_KIND } from './src/wallet-account-read-only-multisig-solana-squads.js'
+export { default as WalletAccountReadOnlyMultisigSquads, PROPOSAL_DATA_MASK, SQUADS_PROGRAM_ADDRESS, TRANSACTION_KIND } from './src/wallet-account-read-only-multisig-squads.js'
 
-export { default as WalletAccountMultisigSolanaSquads, PERMISSION } from './src/wallet-account-multisig-solana-squads.js'
+export { default as WalletAccountMultisigSquads, PERMISSION } from './src/wallet-account-multisig-squads.js'
 
 export { IMultisigCoordinator } from './src/coordinators/index.js'
 

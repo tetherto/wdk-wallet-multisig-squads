@@ -23,9 +23,9 @@ import { InvalidTokenError, NoSuchElementError, NotImplementedError, ProviderReq
 import { rpcRequests, stubSolanaRpc } from './helpers/rpc.js'
 
 import {
-  WalletAccountReadOnlyMultisigSolanaSquads,
+  WalletAccountReadOnlyMultisigSquads,
   SQUADS_PROGRAM_ADDRESS
-} from '@tetherto/wdk-protocol-multisig-squads'
+} from '@tetherto/wdk-wallet-multisig-squads'
 
 const TEST_RPC_URL = 'https://dummy-url.com'
 const TEST_MULTISIG_PDA = 'EEPqJbpYrwqisgoPt3Vu74YBqRji8mFrRxQdARVfDuNG'
@@ -129,10 +129,10 @@ function multisigAccountValue (options) {
  *
  * @param {Object|null} value - The `value` field of the RPC response.
  * @param {Object} [config] - Extra config for the account.
- * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+ * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
  */
 function mockAccount (value, config = { multisigPdaOrCreateKey: TEST_MULTISIG_PDA }) {
-  const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+  const account = new WalletAccountReadOnlyMultisigSquads({
     provider: TEST_RPC_URL,
     commitment: 'confirmed',
     ...config
@@ -154,10 +154,10 @@ const TEST_VAULT_255 = '486r7kq6wj3j84WvhD19SZRCNZbaDFXomiawL7yNfN9s'
  *
  * @param {bigint} lamports - The balance to report.
  * @param {Object} [config] - Extra config for the account.
- * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+ * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
  */
 function mockBalanceAccount (lamports, config = { multisigPdaOrCreateKey: TEST_MULTISIG_PDA }) {
-  const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+  const account = new WalletAccountReadOnlyMultisigSquads({
     provider: TEST_RPC_URL,
     commitment: 'confirmed',
     ...config
@@ -183,10 +183,10 @@ const TOKEN_2022_MINT = '7atgF8KQo4wJrD5ATGX7t1V2zVvykPJbFfNeVf1icFv1'
  * @param {string|null} amount - The token amount as the RPC reports it, or null for
  *   a non-existent account.
  * @param {Object} [config] - Extra config for the account.
- * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+ * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
  */
 function mockTokenAccount (amount, config = { multisigPdaOrCreateKey: TEST_MULTISIG_PDA }) {
-  const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+  const account = new WalletAccountReadOnlyMultisigSquads({
     provider: TEST_RPC_URL,
     commitment: 'confirmed',
     ...config
@@ -302,13 +302,13 @@ function proposalAccountValue (options) {
  * @param {Array<Object|null>} proposals - The `getMultipleAccounts` entries to return,
  *   in order across all chunks.
  * @param {Object} [multisig] - The multisig account, or null to report it missing.
- * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+ * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
  */
 function mockProposals (proposals, multisig = multisigAccountValue({
   members: [{ address: MEMBER_A }, { address: MEMBER_B }],
   threshold: 2
 })) {
-  const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+  const account = new WalletAccountReadOnlyMultisigSquads({
     provider: TEST_RPC_URL,
     commitment: 'confirmed',
     multisigPdaOrCreateKey: TEST_MULTISIG_PDA
@@ -405,7 +405,7 @@ function clockAccountValue (unixTimestamp) {
  * @param {number[]} [options.transactionType] - The transaction account discriminator.
  * @param {boolean} [options.proposalExists=true] - Whether the proposal account exists.
  * @param {boolean} [options.transactionExists=true] - Whether the transaction exists.
- * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+ * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
  */
 function mockExecutable ({
   status = PROPOSAL_STATUS.Approved,
@@ -418,7 +418,7 @@ function mockExecutable ({
   transactionExists = true,
   owner = SQUADS_PROGRAM_ADDRESS
 } = {}) {
-  const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+  const account = new WalletAccountReadOnlyMultisigSquads({
     provider: TEST_RPC_URL,
     commitment: 'confirmed',
     multisigPdaOrCreateKey: TEST_MULTISIG_PDA
@@ -456,7 +456,7 @@ function mockExecutable ({
  * @param {bigint} [options.rent=2039280n] - The rent-exempt minimum to report.
  * @param {number[]} [options.discriminator] - An override for the account discriminator.
  * @param {boolean} [options.exists=true] - Whether the program config account exists.
- * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+ * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
  */
 function mockDeployQuote ({
   creationFee = 0n,
@@ -464,7 +464,7 @@ function mockDeployQuote ({
   discriminator = PROGRAM_CONFIG_DISCRIMINATOR,
   exists = true
 } = {}) {
-  const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+  const account = new WalletAccountReadOnlyMultisigSquads({
     provider: TEST_RPC_URL,
     commitment: 'confirmed',
     multisigPdaOrCreateKey: TEST_MULTISIG_PDA
@@ -498,10 +498,10 @@ function mockDeployQuote ({
  * Builds an account whose RPC rejects.
  *
  * @param {Error} error - The error to reject with.
- * @returns {WalletAccountReadOnlyMultisigSolanaSquads}
+ * @returns {WalletAccountReadOnlyMultisigSquads}
  */
 function mockFailingAccount (error) {
-  const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+  const account = new WalletAccountReadOnlyMultisigSquads({
     provider: TEST_RPC_URL,
     multisigPdaOrCreateKey: TEST_MULTISIG_PDA
   })
@@ -511,12 +511,12 @@ function mockFailingAccount (error) {
   return account
 }
 
-describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
+describe('WalletAccountReadOnlyMultisigSquads', () => {
   describe('toCreateKeySecretBytes', () => {
     const PRIVATE_KEY = new Uint8Array(32).fill(9)
 
     it('returns a 32-byte private key unchanged', () => {
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.toCreateKeySecretBytes(PRIVATE_KEY))
+      expect(WalletAccountReadOnlyMultisigSquads.toCreateKeySecretBytes(PRIVATE_KEY))
         .toEqual(PRIVATE_KEY)
     })
 
@@ -525,58 +525,58 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
 
       keyPair.set(getBase58Encoder().encode(TEST_CREATE_KEY), 32)
 
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.toCreateKeySecretBytes(keyPair))
+      expect(WalletAccountReadOnlyMultisigSquads.toCreateKeySecretBytes(keyPair))
         .toEqual(keyPair)
     })
 
     it('decodes a base58 secret to the same bytes', () => {
       const base58 = getBase58Decoder().decode(PRIVATE_KEY)
 
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.toCreateKeySecretBytes(base58))
+      expect(WalletAccountReadOnlyMultisigSquads.toCreateKeySecretBytes(base58))
         .toEqual(PRIVATE_KEY)
     })
 
     it('refuses a missing secret', () => {
-      expect(() => WalletAccountReadOnlyMultisigSolanaSquads.toCreateKeySecretBytes(undefined))
+      expect(() => WalletAccountReadOnlyMultisigSquads.toCreateKeySecretBytes(undefined))
         .toThrow('A `createKeySecret` is required to create a multisig. Provide it in the configuration.')
     })
 
     it('refuses a secret of the wrong length', () => {
-      expect(() => WalletAccountReadOnlyMultisigSolanaSquads.toCreateKeySecretBytes(new Uint8Array(31)))
+      expect(() => WalletAccountReadOnlyMultisigSquads.toCreateKeySecretBytes(new Uint8Array(31)))
         .toThrow('Invalid createKeySecret of 31 bytes. Expected 32 or 64.')
     })
   })
 
   describe('toMultisigPda', () => {
     it('passes an off-curve address through as the multisig', () => {
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.toMultisigPda(SQUADS_PROGRAM_ADDRESS, TEST_MULTISIG_PDA))
+      expect(WalletAccountReadOnlyMultisigSquads.toMultisigPda(SQUADS_PROGRAM_ADDRESS, TEST_MULTISIG_PDA))
         .toBe(TEST_MULTISIG_PDA)
     })
 
     it('derives the PDA of an on-curve create key', () => {
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.toMultisigPda(SQUADS_PROGRAM_ADDRESS, TEST_CREATE_KEY))
+      expect(WalletAccountReadOnlyMultisigSquads.toMultisigPda(SQUADS_PROGRAM_ADDRESS, TEST_CREATE_KEY))
         .toBe(TEST_DERIVED_PDA)
     })
 
     it('returns nothing when the config names neither', () => {
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.toMultisigPda(SQUADS_PROGRAM_ADDRESS)).toBeUndefined()
+      expect(WalletAccountReadOnlyMultisigSquads.toMultisigPda(SQUADS_PROGRAM_ADDRESS)).toBeUndefined()
     })
 
     it('derives under the program it is given', () => {
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.toMultisigPda(SYSTEM_PROGRAM_ADDRESS, TEST_CREATE_KEY))
+      expect(WalletAccountReadOnlyMultisigSquads.toMultisigPda(SYSTEM_PROGRAM_ADDRESS, TEST_CREATE_KEY))
         .not.toBe(TEST_DERIVED_PDA)
     })
   })
 
   describe('createRpc', () => {
     it('builds no client without a provider', () => {
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.createRpc({})).toBeUndefined()
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.createRpc()).toBeUndefined()
-      expect(WalletAccountReadOnlyMultisigSolanaSquads.createRpc({ provider: [] })).toBeUndefined()
+      expect(WalletAccountReadOnlyMultisigSquads.createRpc({})).toBeUndefined()
+      expect(WalletAccountReadOnlyMultisigSquads.createRpc()).toBeUndefined()
+      expect(WalletAccountReadOnlyMultisigSquads.createRpc({ provider: [] })).toBeUndefined()
     })
 
     it('sends to the URL it was given', async () => {
-      const rpc = WalletAccountReadOnlyMultisigSolanaSquads.createRpc({ provider: TEST_RPC_URL })
+      const rpc = WalletAccountReadOnlyMultisigSquads.createRpc({ provider: TEST_RPC_URL })
       const fetchMock = stubSolanaRpc({ getSlot: () => 7 })
 
       expect(await rpc.getSlot().send()).toBe(7n)
@@ -584,7 +584,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('sends to the first of a list', async () => {
-      const rpc = WalletAccountReadOnlyMultisigSolanaSquads.createRpc({
+      const rpc = WalletAccountReadOnlyMultisigSquads.createRpc({
         provider: [TEST_RPC_URL, 'https://dummy-fallback.com']
       })
       const fetchMock = stubSolanaRpc({ getSlot: () => 7 })
@@ -726,7 +726,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('reads at the confirmed commitment when the config names none', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -1505,7 +1505,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('returns false rather than decoding another account type as a proposal', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -1560,7 +1560,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('propagates RPC failures', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -1589,10 +1589,10 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
      *
      * @param {Object|null} value - The receipt to return.
      * @param {Object} [config] - Extra config for the account.
-     * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+     * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
      */
     function mockReceipt (value, config = {}) {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA,
         ...config
@@ -1694,7 +1694,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('propagates RPC failures', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -1718,10 +1718,10 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
      *
      * @param {Object|null} status - The signature status, or null for a signature the cluster does not know.
      * @param {Object|null} [receipt] - The transaction `getTransaction` returns.
-     * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+     * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
      */
     function mockStatus (status, receipt = DUMMY_RECEIPT) {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -1858,7 +1858,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('throws without a provider', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
 
@@ -1869,7 +1869,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('polls at one slot', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
 
@@ -1962,7 +1962,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('propagates RPC failures', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -2116,7 +2116,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('propagates RPC failures', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -2207,7 +2207,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('propagates RPC failures', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -2227,10 +2227,10 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
      * Builds an account serving a multisig and real rent-exempt minimums.
      *
      * @param {number} memberCount - How many members the multisig holds.
-     * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, getMinimumBalanceForRentExemption: Function }}
+     * @returns {{ account: WalletAccountReadOnlyMultisigSquads, getMinimumBalanceForRentExemption: Function }}
      */
     function mockQuote (memberCount) {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         commitment: 'confirmed',
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
@@ -2336,7 +2336,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('throws when the multisig does not exist', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -2373,7 +2373,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('throws without a provider, before reading the multisig', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
 
@@ -2392,10 +2392,10 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
      * @param {Object} [options] - The scenario.
      * @param {number} [options.memberCount=2] - How many members the multisig holds.
      * @param {boolean} [options.recipientAtaExists=true] - Whether the recipient holds the token.
-     * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+     * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
      */
     function mockTransferQuote ({ memberCount = 2, recipientAtaExists = true } = {}) {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         commitment: 'confirmed',
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
@@ -2494,7 +2494,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('throws without a provider, before reading the multisig', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
 
@@ -2543,7 +2543,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     })
 
     it('throws when the multisig does not exist', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -2577,10 +2577,10 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
      * quoting an execution reads.
      *
      * @param {Object|null} proposal - The proposal account, or null to report it missing.
-     * @returns {{ account: WalletAccountReadOnlyMultisigSolanaSquads, rpc: Object }}
+     * @returns {{ account: WalletAccountReadOnlyMultisigSquads, rpc: Object }}
      */
     function mockExecuteQuote (proposal = proposalAccountValue({ approved: [MEMBER_A] })) {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      const account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })
@@ -2644,7 +2644,7 @@ describe('WalletAccountReadOnlyMultisigSolanaSquads', () => {
     let account
 
     beforeEach(() => {
-      account = new WalletAccountReadOnlyMultisigSolanaSquads({
+      account = new WalletAccountReadOnlyMultisigSquads({
         provider: TEST_RPC_URL,
         multisigPdaOrCreateKey: TEST_MULTISIG_PDA
       })

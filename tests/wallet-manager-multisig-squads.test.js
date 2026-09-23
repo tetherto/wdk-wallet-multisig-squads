@@ -18,9 +18,9 @@ import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals
 
 import { ProviderRequiredError, ValueError } from '@tetherto/wdk-wallet'
 
-import WalletManagerMultisigSolanaSquads, {
-  WalletAccountMultisigSolanaSquads
-} from '@tetherto/wdk-protocol-multisig-squads'
+import WalletManagerMultisigSquads, {
+  WalletAccountMultisigSquads
+} from '@tetherto/wdk-wallet-multisig-squads'
 
 import { stubSolanaRpc } from './helpers/rpc.js'
 
@@ -34,11 +34,11 @@ const DUMMY_FEES = [{ slot: 1, prioritizationFee: 1000 }]
 // The signer key TEST_SEED_PHRASE derives at 0'/0', which three suites need.
 const SIGNER_0 = '3uXqWpwgqKVdiHAwF6Vmu4G4vdQzpR66xjPkz1G7zMKE'
 
-describe('WalletManagerMultisigSolanaSquads', () => {
+describe('WalletManagerMultisigSquads', () => {
   let wallet
 
   beforeEach(() => {
-    wallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+    wallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
       provider: TEST_RPC_URL,
       commitment: 'confirmed'
     })
@@ -57,21 +57,21 @@ describe('WalletManagerMultisigSolanaSquads', () => {
     })
 
     it('should create wallet manager with string seed phrase', () => {
-      const newWallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const newWallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: TEST_RPC_URL
       })
 
-      expect(newWallet).toBeInstanceOf(WalletManagerMultisigSolanaSquads)
+      expect(newWallet).toBeInstanceOf(WalletManagerMultisigSquads)
     })
 
     it('should reject an invalid seed phrase', () => {
-      expect(() => new WalletManagerMultisigSolanaSquads('not a seed phrase', {
+      expect(() => new WalletManagerMultisigSquads('not a seed phrase', {
         provider: TEST_RPC_URL
       })).toThrow(new ValueError('Invalid seed phrase.'))
     })
 
     it('should send requests to the first of several providers', async () => {
-      const newWallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const newWallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: [TEST_RPC_URL, TEST_RPC_URL_FALLBACK]
       })
       const fetchMock = stubSolanaRpc({ getRecentPrioritizationFees: () => DUMMY_FEES })
@@ -85,7 +85,7 @@ describe('WalletManagerMultisigSolanaSquads', () => {
     // the second provider is never tried. Delete the `.failing` when that is fixed: this test then
     // reports the fix by failing.
     it.failing('should fall back when the first provider is unreachable', async () => {
-      const newWallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE, {
+      const newWallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE, {
         provider: [TEST_RPC_URL, TEST_RPC_URL_FALLBACK]
       })
 
@@ -107,7 +107,7 @@ describe('WalletManagerMultisigSolanaSquads', () => {
     it('should return account at index 0', async () => {
       const account = await wallet.getAccount(0)
 
-      expect(account).toBeInstanceOf(WalletAccountMultisigSolanaSquads)
+      expect(account).toBeInstanceOf(WalletAccountMultisigSquads)
       expect(account.index).toBe(0)
       expect(account.path).toBe("m/44'/501'/0'/0'")
     })
@@ -142,7 +142,7 @@ describe('WalletManagerMultisigSolanaSquads', () => {
     it("should return account for path \"0'/0'/0'\"", async () => {
       const account = await wallet.getAccountByPath("0'/0'/0'")
 
-      expect(account).toBeInstanceOf(WalletAccountMultisigSolanaSquads)
+      expect(account).toBeInstanceOf(WalletAccountMultisigSquads)
       expect(account.path).toBe("m/44'/501'/0'/0'/0'")
     })
 
@@ -221,7 +221,7 @@ describe('WalletManagerMultisigSolanaSquads', () => {
     })
 
     it('should throw error when no RPC connection', async () => {
-      const noRpcWallet = new WalletManagerMultisigSolanaSquads(TEST_SEED_PHRASE)
+      const noRpcWallet = new WalletManagerMultisigSquads(TEST_SEED_PHRASE)
 
       await expect(noRpcWallet.getFeeRates()).rejects.toThrow(ProviderRequiredError)
       await expect(noRpcWallet.getFeeRates()).rejects.toThrow(

@@ -1,5 +1,5 @@
 {
-  "name": "@tetherto/wdk-protocol-multisig-squads",
+  "name": "@tetherto/wdk-wallet-multisig-squads",
   "version": "1.0.0-beta.1",
   "description": "A simple package to manage Squads multisig wallets for the Solana blockchain.",
   "keywords": [
@@ -13,7 +13,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/tetherto/wdk-protocol-multisig-squads.git"
+    "url": "git://github.com/tetherto/wdk-wallet-multisig-squads.git"
   },
   "main": "index.js",
   "type": "module",

@@ -19,7 +19,7 @@ import { access } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { SQUADS_PROGRAM_ADDRESS } from '@tetherto/wdk-protocol-multisig-squads'
+import { SQUADS_PROGRAM_ADDRESS } from '@tetherto/wdk-wallet-multisig-squads'
 
 export const TEST_RPC_URL = 'http://127.0.0.1:8899'
 

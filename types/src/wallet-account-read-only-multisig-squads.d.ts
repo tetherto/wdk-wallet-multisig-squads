@@ -27,13 +27,13 @@
 /**
  * `MultisigInfo` widened with each owner's Squads permission mask, aligned with `owners`.
  *
- * @typedef {MultisigInfo & { masks: number[] }} SolanaMultisigInfo
+ * @typedef {MultisigInfo & { masks: number[] }} MultisigSquadsInfo
  */
 /** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigProposal} MultisigProposal */
 /**
  * `MultisigProposal` widened with the proposal's Squads status and its vote lists.
  *
- * @typedef {MultisigProposal & { statusName: string, approved: string[], rejected: string[], cancelled: string[] }} SolanaMultisigProposal
+ * @typedef {MultisigProposal & { statusName: string, approved: string[], rejected: string[], cancelled: string[] }} MultisigSquadsProposal
  */
 /** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
 /** @typedef {import('@tetherto/wdk-wallet').TransactionReceipt} TransactionReceipt */
@@ -49,7 +49,7 @@
  * address always sits off the ed25519 curve, and a create key always sits on it, because it has to
  * sign the multisig into being.
  *
- * @typedef {Object} SolanaMultisigSquadsReadOnlyConfig
+ * @typedef {Object} MultisigSquadsWalletReadOnlyConfig
  * @property {string | string[]} [provider] - A Solana RPC URL, or a list of URLs for failover. Omit it to derive addresses without reaching the cluster; every method that needs the cluster then throws.
  * @property {Commitment} [commitment] - The commitment level for transactions (default: 'confirmed').
  * @property {number} [retries] - The number of retries for the failover provider (default: 3).
@@ -61,14 +61,14 @@
  * The extra configuration a signing account takes: the account that funds the rent Squads
  * charges, and the fee ceilings above which it refuses to submit.
  *
- * @typedef {Object} SolanaMultisigSquadsSigningConfig
+ * @typedef {Object} MultisigSquadsWalletSigningConfig
  * @property {MultisigCoordinatorFactory} [coordinator] - Builds the coordinator the account votes through, from the address of the member it will vote as. Omit it and each vote is the member's own transaction.
  * @property {string} [rentPayer] - The account charged for the rent the multisig, transaction and proposal accounts lock up (default: the signer). It must sign the transaction by other means, which nothing in this package currently provides.
  * @property {number | bigint} [createMaxFee] - The maximum fee amount for the create/deploy operation.
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfers.
  * @property {number | bigint} [approveMaxFee] - The maximum fee amount for approving through a coordinator, quoted before the member signs. A coordinator compiles the bundle, so it fixes the priority fee that vote carries.
  */
-/** @typedef {SolanaMultisigSquadsReadOnlyConfig & SolanaMultisigSquadsSigningConfig} SolanaMultisigSquadsConfig */
+/** @typedef {MultisigSquadsWalletReadOnlyConfig & MultisigSquadsWalletSigningConfig} MultisigSquadsWalletConfig */
 /**
  * A member of a Squads multisig, as stored on-chain.
  *
@@ -192,7 +192,7 @@ export const PROPOSAL_DATA_MASK: {
  *
  * @implements {IWalletAccountReadOnlyMultisig}
  */
-export default class WalletAccountReadOnlyMultisigSolanaSquads extends WalletAccountReadOnly implements IWalletAccountReadOnlyMultisig {
+export default class WalletAccountReadOnlyMultisigSquads extends WalletAccountReadOnly implements IWalletAccountReadOnlyMultisig {
     /**
      * Normalizes a create key secret to bytes, rejecting what cannot be one. Both the address
      * derivation and the signer build read a secret through this, so they refuse the same inputs.
@@ -224,10 +224,10 @@ export default class WalletAccountReadOnlyMultisigSolanaSquads extends WalletAcc
      * Builds the RPC client a configuration asks for: one client per URL behind a failover proxy
      * when it names a list, a single client when it names one URL, and none when it names neither.
      *
-     * @param {SolanaMultisigSquadsReadOnlyConfig} [config] - The configuration to read `provider` and `retries` from.
+     * @param {MultisigSquadsWalletReadOnlyConfig} [config] - The configuration to read `provider` and `retries` from.
      * @returns {SolanaRpc | undefined} The client, or undefined when no provider is configured.
      */
-    static createRpc({ provider, retries }?: SolanaMultisigSquadsReadOnlyConfig): SolanaRpc | undefined;
+    static createRpc({ provider, retries }?: MultisigSquadsWalletReadOnlyConfig): SolanaRpc | undefined;
     /**
      * The default poll cadence for `waitForTransaction`, one slot rather than the block time the
      * base class assumes.
@@ -238,17 +238,17 @@ export default class WalletAccountReadOnlyMultisigSolanaSquads extends WalletAcc
     /**
      * Creates a new read-only Solana Squads multisig wallet account.
      *
-     * @param {SolanaMultisigSquadsReadOnlyConfig} config - The configuration object.
+     * @param {MultisigSquadsWalletReadOnlyConfig} config - The configuration object.
      */
-    constructor(config: SolanaMultisigSquadsReadOnlyConfig);
+    constructor(config: MultisigSquadsWalletReadOnlyConfig);
     /**
      * The multisig Squads configuration. It carries the signing fields too when a signing
      * account owns it, or when one derived this account through `_withConfig`.
      *
      * @protected
-     * @type {SolanaMultisigSquadsConfig}
+     * @type {MultisigSquadsWalletConfig}
      */
-    protected _config: SolanaMultisigSquadsConfig;
+    protected _config: MultisigSquadsWalletConfig;
     /**
      * The address of the Squads program to operate against.
      *
@@ -280,9 +280,9 @@ export default class WalletAccountReadOnlyMultisigSolanaSquads extends WalletAcc
     /**
      * Returns aggregated information about the multisig.
      *
-     * @returns {Promise<SolanaMultisigInfo>} The multisig info.
+     * @returns {Promise<MultisigSquadsInfo>} The multisig info.
      */
-    getMultisigInfo(): Promise<SolanaMultisigInfo>;
+    getMultisigInfo(): Promise<MultisigSquadsInfo>;
     /**
      * Returns the transaction index of the most recently created transaction.
      *
@@ -357,18 +357,18 @@ export default class WalletAccountReadOnlyMultisigSolanaSquads extends WalletAcc
      * Returns the proposals at the given ids, keyed by id in canonical decimal form.
      *
      * @param {(number | bigint | string)[]} proposalIds - The proposal (transaction index) ids.
-     * @returns {Promise<Record<string, SolanaMultisigProposal | null>>} For each id, the proposal, or null if no proposal exists at that id.
+     * @returns {Promise<Record<string, MultisigSquadsProposal | null>>} For each id, the proposal, or null if no proposal exists at that id.
      * @throws {ProviderRequiredError} The wallet must be connected to a provider.
      * @throws {NoSuchElementError} The multisig account must exist.
      */
-    getProposals(proposalIds: (number | bigint | string)[]): Promise<Record<string, SolanaMultisigProposal | null>>;
+    getProposals(proposalIds: (number | bigint | string)[]): Promise<Record<string, MultisigSquadsProposal | null>>;
     /**
      * Returns the proposal at the given id.
      *
      * @param {number | bigint | string} proposalId - The proposal (transaction index) id.
-     * @returns {Promise<SolanaMultisigProposal | null>} The proposal, or null if no proposal exists at that id.
+     * @returns {Promise<MultisigSquadsProposal | null>} The proposal, or null if no proposal exists at that id.
      */
-    getProposal(proposalId: number | bigint | string): Promise<SolanaMultisigProposal | null>;
+    getProposal(proposalId: number | bigint | string): Promise<MultisigSquadsProposal | null>;
     /**
      * Returns whether a proposal can be executed right now, meaning `executeProposal` would submit
      * it rather than throw. A batch reads as not ready for that reason, though the program would
@@ -398,23 +398,23 @@ export default class WalletAccountReadOnlyMultisigSolanaSquads extends WalletAcc
      * Quotes the costs of a propose operation.
      *
      * @param {SolanaTransaction} tx - The transaction to quote, either arm of `SolanaTransaction`.
-     * @param {SolanaMultisigSquadsConfig} [config] - An optional config override, merged over this account's configuration.
+     * @param {MultisigSquadsWalletConfig} [config] - An optional config override, merged over this account's configuration.
      * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction quote, in lamports. Sized from the message the proposal would store, so it is exact for any transaction `propose` accepts.
      * @throws {ProviderRequiredError} The wallet must be connected to a provider.
      * @throws {NoSuchElementError} The multisig must exist.
      */
-    quotePropose(tx: SolanaTransaction, config?: SolanaMultisigSquadsConfig): Promise<Omit<TransactionResult, "hash">>;
+    quotePropose(tx: SolanaTransaction, config?: MultisigSquadsWalletConfig): Promise<Omit<TransactionResult, "hash">>;
     /**
      * Quotes the costs of a transfer operation.
      *
      * @param {TransferOptions} transferOptions - The transfer options.
-     * @param {SolanaMultisigSquadsConfig} [config] - An optional config override, merged over this account's configuration.
+     * @param {MultisigSquadsWalletConfig} [config] - An optional config override, merged over this account's configuration.
      * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transfer quote, in lamports.
      * @throws {ProviderRequiredError} The wallet must be connected to a provider.
      * @throws {NoSuchElementError} The multisig must exist.
      * @todo Support Token-2022 (Token Extensions Program).
      */
-    quoteTransfer(transferOptions: TransferOptions, config?: SolanaMultisigSquadsConfig): Promise<Omit<TransactionResult, "hash">>;
+    quoteTransfer(transferOptions: TransferOptions, config?: MultisigSquadsWalletConfig): Promise<Omit<TransactionResult, "hash">>;
     /**
      * Quotes the costs of an execute proposal operation.
      *
@@ -672,14 +672,14 @@ export type MultisigInfo = import("@tetherto/wdk-wallet/multisig").MultisigInfo;
 /**
  * `MultisigInfo` widened with each owner's Squads permission mask, aligned with `owners`.
  */
-export type SolanaMultisigInfo = MultisigInfo & {
+export type MultisigSquadsInfo = MultisigInfo & {
     masks: number[];
 };
 export type MultisigProposal = import("@tetherto/wdk-wallet/multisig").MultisigProposal;
 /**
  * `MultisigProposal` widened with the proposal's Squads status and its vote lists.
  */
-export type SolanaMultisigProposal = MultisigProposal & {
+export type MultisigSquadsProposal = MultisigProposal & {
     statusName: string;
     approved: string[];
     rejected: string[];
@@ -699,7 +699,7 @@ export type SolanaTransactionReceipt = import("@tetherto/wdk-wallet-solana").Sol
  * address always sits off the ed25519 curve, and a create key always sits on it, because it has to
  * sign the multisig into being.
  */
-export type SolanaMultisigSquadsReadOnlyConfig = {
+export type MultisigSquadsWalletReadOnlyConfig = {
     /**
      * - A Solana RPC URL, or a list of URLs for failover. Omit it to derive addresses without reaching the cluster; every method that needs the cluster then throws.
      */
@@ -729,7 +729,7 @@ export type SolanaMultisigSquadsReadOnlyConfig = {
  * The extra configuration a signing account takes: the account that funds the rent Squads
  * charges, and the fee ceilings above which it refuses to submit.
  */
-export type SolanaMultisigSquadsSigningConfig = {
+export type MultisigSquadsWalletSigningConfig = {
     /**
      * - Builds the coordinator the account votes through, from the address of the member it will vote as. Omit it and each vote is the member's own transaction.
      */
@@ -751,7 +751,7 @@ export type SolanaMultisigSquadsSigningConfig = {
      */
     approveMaxFee?: number | bigint;
 };
-export type SolanaMultisigSquadsConfig = SolanaMultisigSquadsReadOnlyConfig & SolanaMultisigSquadsSigningConfig;
+export type MultisigSquadsWalletConfig = MultisigSquadsWalletReadOnlyConfig & MultisigSquadsWalletSigningConfig;
 /**
  * A member of a Squads multisig, as stored on-chain.
  */

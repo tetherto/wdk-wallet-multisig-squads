@@ -38,7 +38,7 @@ import * as squads from '@sqds/multisig'
 
 import { WalletAccountReadOnlySolana } from '@tetherto/wdk-wallet-solana'
 
-import { IMultisigCoordinator, ValueError } from '@tetherto/wdk-protocol-multisig-squads'
+import { IMultisigCoordinator, ValueError } from '@tetherto/wdk-wallet-multisig-squads'
 
 import { LAMPORTS_PER_SOL, confirmTransaction } from './helpers/chain.js'
 import { deployMultisig, sorted } from './helpers/multisig.js'

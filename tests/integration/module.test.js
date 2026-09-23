@@ -24,11 +24,10 @@ import { generateKeyPairSigner } from '@solana/signers'
 import { NoSuchElementError, UnsupportedOperationError } from '@tetherto/wdk-wallet'
 import { WalletAccountReadOnlySolana } from '@tetherto/wdk-wallet-solana'
 
-import WalletManagerMultisigSolanaSquads, {
+import WalletManagerMultisigSquads, {
   SQUADS_PROGRAM_ADDRESS,
-  WalletAccountMultisigSolanaSquads,
-  WalletAccountReadOnlyMultisigSolanaSquads
-} from '@tetherto/wdk-protocol-multisig-squads'
+  WalletAccountReadOnlyMultisigSquads
+} from '@tetherto/wdk-wallet-multisig-squads'
 
 import {
   LAMPORTS_PER_SOL,
@@ -80,7 +79,7 @@ function solanaAccount (target) {
   })
 }
 
-describe('@tetherto/wdk-protocol-multisig-squads', () => {
+describe('@tetherto/wdk-wallet-multisig-squads', () => {
   const rpc = createSolanaRpc(TEST_RPC_URL)
 
   let stopSolanaTestValidator
@@ -113,7 +112,7 @@ describe('@tetherto/wdk-protocol-multisig-squads', () => {
     })
 
     it('derives an account per index from one manager', async () => {
-      const wallet = new WalletManagerMultisigSolanaSquads(
+      const wallet = new WalletManagerMultisigSquads(
         'test walk nut penalty hip pave soap entry language right filter choice',
         { provider: TEST_RPC_URL }
       )
@@ -1050,7 +1049,7 @@ describe('@tetherto/wdk-protocol-multisig-squads', () => {
 
       const readOnly = await accounts[0].toReadOnlyAccount()
 
-      expect(readOnly).toBeInstanceOf(WalletAccountReadOnlyMultisigSolanaSquads)
+      expect(readOnly).toBeInstanceOf(WalletAccountReadOnlyMultisigSquads)
       expect(await readOnly.getAddress()).toBe(multisigPda)
       expect(await readOnly.getVaultAddress()).toBe(vaultPda)
       expect(await readOnly.getMultisigInfo()).toMatchObject({
@@ -1108,7 +1107,7 @@ describe('@tetherto/wdk-protocol-multisig-squads', () => {
     })
 
     it('refuses to read a multisig with no address configured', async () => {
-      const account = new WalletAccountReadOnlyMultisigSolanaSquads({ provider: TEST_RPC_URL })
+      const account = new WalletAccountReadOnlyMultisigSquads({ provider: TEST_RPC_URL })
 
       await expect(account.getAddress()).rejects.toThrow(/address must be set/)
     })

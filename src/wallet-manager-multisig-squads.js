@@ -16,27 +16,27 @@
 
 import WalletManager, { ProviderRequiredError, UnsupportedOperationError } from '@tetherto/wdk-wallet'
 
-import WalletAccountMultisigSolanaSquads from './wallet-account-multisig-solana-squads.js'
+import WalletAccountMultisigSquads from './wallet-account-multisig-squads.js'
 
-import { SIGNATURE_BASE_FEE } from './wallet-account-read-only-multisig-solana-squads.js'
+import { SIGNATURE_BASE_FEE } from './wallet-account-read-only-multisig-squads.js'
 
 /** @typedef {ReturnType<typeof import('@solana/rpc').createSolanaRpc>} SolanaRpc */
 
 /** @typedef {import('@tetherto/wdk-wallet').FeeRates} FeeRates */
 
-/** @typedef {import('./wallet-account-read-only-multisig-solana-squads.js').SolanaMultisigSquadsConfig} SolanaMultisigSquadsConfig */
+/** @typedef {import('./wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletConfig} MultisigSquadsWalletConfig */
 
 const FEE_RATE_MULTIPLIER = { normal: 110n, fast: 200n }
 
 /**
  * Wallet manager for Solana Squads multisig wallets.
  */
-export default class WalletManagerMultisigSolanaSquads extends WalletManager {
+export default class WalletManagerMultisigSquads extends WalletManager {
   /**
    * Creates a new wallet manager for Solana Squads multisig wallets.
    *
    * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
-   * @param {SolanaMultisigSquadsConfig} [config] - The configuration object (default: {}).
+   * @param {MultisigSquadsWalletConfig} [config] - The configuration object (default: {}).
    */
   constructor (seed, config = {}) {
     super(seed, config)
@@ -45,7 +45,7 @@ export default class WalletManagerMultisigSolanaSquads extends WalletManager {
      * The multisig Squads configuration.
      *
      * @protected
-     * @type {SolanaMultisigSquadsConfig}
+     * @type {MultisigSquadsWalletConfig}
      */
     this._config = config
 
@@ -55,7 +55,7 @@ export default class WalletManagerMultisigSolanaSquads extends WalletManager {
      * @protected
      * @type {SolanaRpc | undefined}
      */
-    this._rpc = WalletAccountMultisigSolanaSquads.createRpc(config)
+    this._rpc = WalletAccountMultisigSquads.createRpc(config)
   }
 
   /**
@@ -65,7 +65,7 @@ export default class WalletManagerMultisigSolanaSquads extends WalletManager {
    * // Returns the account with derivation path m/44'/501'/1'/0'
    * const account = await wallet.getAccount(1);
    * @param {number | string} [indexOrSignerName] - The index of the account to get (default: 0). A registered signer name is not supported.
-   * @returns {Promise<WalletAccountMultisigSolanaSquads>} The account.
+   * @returns {Promise<WalletAccountMultisigSquads>} The account.
    * @throws {UnsupportedOperationError} The signer name must be omitted: this wallet keeps no signer registry.
    */
   async getAccount (indexOrSignerName = 0) {
@@ -83,11 +83,11 @@ export default class WalletManagerMultisigSolanaSquads extends WalletManager {
    * // Returns the account with derivation path m/44'/501'/0'/0'/1'
    * const account = await wallet.getAccountByPath("0'/0'/1'");
    * @param {string} path - The derivation path (e.g. "0'/0'").
-   * @returns {Promise<WalletAccountMultisigSolanaSquads>} The account.
+   * @returns {Promise<WalletAccountMultisigSquads>} The account.
    */
   async getAccountByPath (path) {
     if (!this._accounts[path]) {
-      this._accounts[path] = new WalletAccountMultisigSolanaSquads(this.seed, path, this._config)
+      this._accounts[path] = new WalletAccountMultisigSquads(this.seed, path, this._config)
     }
 
     return this._accounts[path]
