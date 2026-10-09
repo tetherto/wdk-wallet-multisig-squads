@@ -1,5 +1,5 @@
 export { default } from "./src/wallet-manager-multisig-squads.js";
-export { default as WalletAccountMultisigSquads, PERMISSION } from "./src/wallet-account-multisig-squads.js";
+export { IMultisigCoordinator } from "./src/coordinators/index.js";
 export type MultisigInfo = import("@tetherto/wdk-wallet/multisig").MultisigInfo;
 export type MultisigProposal = import("@tetherto/wdk-wallet/multisig").MultisigProposal;
 export type MultisigInteractionResult = import("@tetherto/wdk-wallet/multisig").MultisigInteractionResult;
@@ -13,10 +13,6 @@ export type MultisigSquadsWalletConfig = import("./src/wallet-account-read-only-
 export type MultisigSquadsWalletReadOnlyConfig = import("./src/wallet-account-read-only-multisig-squads.js").MultisigSquadsWalletReadOnlyConfig;
 export type MultisigSquadsInfo = import("./src/wallet-account-read-only-multisig-squads.js").MultisigSquadsInfo;
 export type MultisigSquadsProposal = import("./src/wallet-account-read-only-multisig-squads.js").MultisigSquadsProposal;
-export type MultisigSquadsProposalResult = import("./src/wallet-account-multisig-squads.js").MultisigSquadsProposalResult;
-export type MultisigSquadsTransactionOptions = import("./src/wallet-account-multisig-squads.js").MultisigSquadsTransactionOptions;
-export type MultisigSquadsAddOwnerOptions = import("./src/wallet-account-multisig-squads.js").MultisigSquadsAddOwnerOptions;
-export type MultisigCoordinatorFactory = import("./src/coordinators/index.js").MultisigCoordinatorFactory;
 export type SquadsMember = import("./src/wallet-account-read-only-multisig-squads.js").SquadsMember;
 export type SquadsMultisigAccount = import("./src/wallet-account-read-only-multisig-squads.js").SquadsMultisigAccount;
 export type SquadsProposalAccount = import("./src/wallet-account-read-only-multisig-squads.js").SquadsProposalAccount;
@@ -28,7 +24,11 @@ export type SquadsConfigAction = import("./src/wallet-account-read-only-multisig
 export type SquadsTransactionAccount = import("./src/wallet-account-read-only-multisig-squads.js").SquadsTransactionAccount;
 export type SquadsProgramConfig = import("./src/wallet-account-read-only-multisig-squads.js").SquadsProgramConfig;
 export type SquadsProposalContext = import("./src/wallet-account-read-only-multisig-squads.js").SquadsProposalContext;
+export type MultisigSquadsProposalResult = import("./src/wallet-account-multisig-squads.js").MultisigSquadsProposalResult;
+export type MultisigSquadsTransactionOptions = import("./src/wallet-account-multisig-squads.js").MultisigSquadsTransactionOptions;
+export type MultisigSquadsAddOwnerOptions = import("./src/wallet-account-multisig-squads.js").MultisigSquadsAddOwnerOptions;
+export type MultisigCoordinatorFactory = import("./src/coordinators/index.js").MultisigCoordinatorFactory;
 export { default as WalletAccountReadOnlyMultisigSquads, PROPOSAL_DATA_MASK, SQUADS_PROGRAM_ADDRESS, TRANSACTION_KIND } from "./src/wallet-account-read-only-multisig-squads.js";
-export { IMultisigCoordinator } from "./src/coordinators/index.js";
+export { default as WalletAccountMultisigSquads, PERMISSION } from "./src/wallet-account-multisig-squads.js";
 export { AccountNotOwnerError, ThresholdNotMetError } from "@tetherto/wdk-wallet/multisig";
-export { AssertionError, InvalidTokenError, MaximumFeeExceededError, NoSuchElementError, NotImplementedError, ProviderError, ProviderErrorReason, ProviderRequiredError, UnsupportedOperationError, ValueError, WdkError } from "@tetherto/wdk-wallet";
+export { AssertionError, DisposalError, InvalidSignerError, InvalidTokenError, MaximumFeeExceededError, NoSuchElementError, NotImplementedError, ProviderError, ProviderErrorReason, ProviderRequiredError, UnsupportedOperationError, ValueError, WdkError } from "@tetherto/wdk-wallet";

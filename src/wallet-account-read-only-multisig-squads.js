@@ -45,11 +45,30 @@ import {
 import { getProgramDerivedAddressSync } from './helpers/program-derived-address.js'
 
 /** @typedef {ReturnType<typeof import('@solana/rpc').createSolanaRpc>} SolanaRpc */
+
 /** @typedef {import('@solana/rpc-types').Commitment} Commitment */
+
 /** @typedef {import('@solana/addresses').Address} Address */
+
 /** @typedef {import('@solana/instructions').AccountMeta} AccountMeta */
 /** @typedef {import('@solana/instructions').Instruction} Instruction */
+
 /** @typedef {import('@solana/codecs-core').ReadonlyUint8Array} ReadonlyUint8Array */
+
+/** @typedef {import('@tetherto/wdk-wallet/multisig').IWalletAccountReadOnlyMultisig} IWalletAccountReadOnlyMultisig */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigInfo} MultisigInfo */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigProposal} MultisigProposal */
+
+/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
+/** @typedef {import('@tetherto/wdk-wallet').TransactionReceipt} TransactionReceipt */
+/** @typedef {import('@tetherto/wdk-wallet').Finality} Finality */
+/** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
+
+/** @typedef {import('./coordinators/index.js').MultisigCoordinatorFactory} MultisigCoordinatorFactory */
+
+/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransaction} SolanaTransaction */
+/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransactionReceipt} SolanaTransactionReceipt */
+
 /**
  * A kit instruction with the two halves kit leaves optional. Every instruction this package builds
  * carries both, and `_compileTransactionMessage` reads both.
@@ -69,28 +88,17 @@ import { getProgramDerivedAddressSync } from './helpers/program-derived-address.
  * @property {number} numWritableNonSigners - How many non-signers after them are writable.
  */
 
-/** @typedef {import('@tetherto/wdk-wallet/multisig').IWalletAccountReadOnlyMultisig} IWalletAccountReadOnlyMultisig */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigInfo} MultisigInfo */
 /**
  * `MultisigInfo` widened with each owner's Squads permission mask, aligned with `owners`.
  *
  * @typedef {MultisigInfo & { masks: number[] }} MultisigSquadsInfo
  */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigProposal} MultisigProposal */
+
 /**
  * `MultisigProposal` widened with the proposal's Squads status and its vote lists.
  *
  * @typedef {MultisigProposal & { statusName: string, approved: string[], rejected: string[], cancelled: string[] }} MultisigSquadsProposal
  */
-/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
-/** @typedef {import('@tetherto/wdk-wallet').TransactionReceipt} TransactionReceipt */
-/** @typedef {import('@tetherto/wdk-wallet').Finality} Finality */
-/** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
-
-/** @typedef {import('./coordinators/index.js').MultisigCoordinatorFactory} MultisigCoordinatorFactory */
-
-/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransaction} SolanaTransaction */
-/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransactionReceipt} SolanaTransactionReceipt */
 
 /**
  * The configuration a read-only Squads account takes: how to reach the cluster, and which

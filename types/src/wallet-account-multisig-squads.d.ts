@@ -3,6 +3,16 @@
 /** @typedef {import('@tetherto/wdk-wallet/multisig').IMultisigOwnerManagement} IMultisigOwnerManagement */
 /** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigInteractionResult} MultisigInteractionResult */
 /** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigProposal} MultisigProposal */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigTransactionOptions} MultisigTransactionOptions */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigOptions} MultisigOptions */
+/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
+/** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
+/** @typedef {import('@tetherto/wdk-wallet').KeyPair} KeyPair */
+/** @typedef {import('@solana/signers').KeyPairSigner} KeyPairSigner */
+/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransaction} SolanaTransaction */
+/** @typedef {import('@tetherto/wdk-wallet-solana').SignerOptions} SignerOptions */
+/** @typedef {import('@tetherto/wdk-wallet-solana/signers').ISignerSolana} ISignerSolana */
+/** @typedef {import('./wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletConfig} MultisigSquadsWalletConfig */
 /**
  * `MultisigProposal` widened with `transaction` from `MultisigInteractionResult`, and with the
  * approvals a coordinator holds. `transaction` is undefined when an approval only circulates
@@ -13,7 +23,6 @@
  *
  * @typedef {MultisigProposal & MultisigInteractionResult & { pendingConfirmations: number }} MultisigSquadsProposalResult
  */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigTransactionOptions} MultisigTransactionOptions */
 /**
  * `MultisigTransactionOptions` widened with the vault the proposal spends from and the note the
  * call records. `vaultIndex` is an index between 0 and 255, which the stored transaction carries
@@ -23,7 +32,6 @@
  *
  * @typedef {MultisigTransactionOptions & { vaultIndex?: number, memo?: string }} MultisigSquadsTransactionOptions
  */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigOptions} MultisigOptions */
 /**
  * `MultisigOptions` widened with the Squads permission mask to grant the member being added: a
  * bitwise OR of `PERMISSION.initiate`, `PERMISSION.vote` and `PERMISSION.execute`. Both fields
@@ -31,12 +39,6 @@
  *
  * @typedef {Partial<MultisigOptions> & { mask?: number }} MultisigSquadsAddOwnerOptions
  */
-/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
-/** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
-/** @typedef {import('@tetherto/wdk-wallet').KeyPair} KeyPair */
-/** @typedef {import('@solana/signers').KeyPairSigner} KeyPairSigner */
-/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransaction} SolanaTransaction */
-/** @typedef {import('./wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletConfig} MultisigSquadsWalletConfig */
 /**
  * The Squads member permissions, as the bits of a member's mask.
  *
@@ -62,8 +64,17 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
      */
     static getCreateKeySigner(createKeySecret: string | Uint8Array): Promise<KeyPairSigner>;
     /**
-     * Creates a new Solana Squads multisig wallet account.
+     * Creates a new Solana Squads multisig wallet account from a signer.
      *
+     * @overload
+     * @param {ISignerSolana} signer - The member's signer, derived to an account path.
+     * @param {MultisigSquadsWalletConfig & SignerOptions} config - The configuration object.
+     */
+    constructor(signer: ISignerSolana, config: MultisigSquadsWalletConfig & SignerOptions);
+    /**
+     * Creates a new Solana Squads multisig wallet account from a seed.
+     *
+     * @overload
      * @param {string | Uint8Array} seed - A [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) mnemonic seed phrase, or a raw BIP-32 master seed (16-64 bytes).
      * @param {string} path - The SLIP-0010 derivation path (e.g. "0'/0'").
      * @param {MultisigSquadsWalletConfig} config - The configuration object.
@@ -76,32 +87,40 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
      * @type {WalletAccountSolana}
      */
     protected _signerAccount: WalletAccountSolana;
+    /** @private */
+    private _signer;
     /**
      * The coordinator the approvals are circulated through, undefined when the configuration names
-     * none.
+     * none or before the account first needs it.
      *
      * @protected
      * @type {IMultisigCoordinator | undefined}
      */
     protected _coordinator: IMultisigCoordinator | undefined;
     /**
-     * The derivation path's index of this account.
+     * True if the wallet account has been disposed.
      *
-     * @type {number}
+     * @type {boolean}
      */
-    get index(): number;
+    get disposed(): boolean;
     /**
-     * The derivation path of this account (see [SLIP-0010](https://slips.readthedocs.io/en/latest/slip-0010/)).
+     * The derivation path's index of this account, or null for a signer bound to no derivation path.
      *
-     * @type {string}
+     * @type {number | null}
      */
-    get path(): string;
+    get index(): number | null;
     /**
-     * The key pair of the signer account.
+     * The derivation path of this account (see [SLIP-0010](https://slips.readthedocs.io/en/latest/slip-0010/)), or null for a signer bound to no derivation path.
      *
-     * @type {KeyPair}
+     * @type {string | null}
      */
-    get keyPair(): KeyPair;
+    get path(): string | null;
+    /**
+     * The key pair of the signer account, or null for a signer that exposes no key material.
+     *
+     * @type {KeyPair | null}
+     */
+    get keyPair(): KeyPair | null;
     /**
      * Returns the address of the member this account votes and proposes as.
      *
@@ -244,13 +263,17 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
      */
     toReadOnlyAccount(): Promise<WalletAccountReadOnlyMultisigSquads>;
     /**
-     * Disposes the wallet account, erasing the private key from the memory.
+     * Disposes the wallet account. The signer is wiped only if the account owns it (see {@link SignerOptions}).
      *
      * @returns {void} Nothing; the account cannot sign once disposed.
      */
     dispose(): void;
     /** @private */
     private _proposeVaultTransaction;
+    /** @private */
+    private _getCoordinator;
+    /** @private */
+    private _signTransaction;
     /** @private */
     private _getRentPayerAccount;
     /** @private */
@@ -293,6 +316,16 @@ export type IWalletAccountMultisig = import("@tetherto/wdk-wallet/multisig").IWa
 export type IMultisigOwnerManagement = import("@tetherto/wdk-wallet/multisig").IMultisigOwnerManagement;
 export type MultisigInteractionResult = import("@tetherto/wdk-wallet/multisig").MultisigInteractionResult;
 export type MultisigProposal = import("@tetherto/wdk-wallet/multisig").MultisigProposal;
+export type MultisigTransactionOptions = import("@tetherto/wdk-wallet/multisig").MultisigTransactionOptions;
+export type MultisigOptions = import("@tetherto/wdk-wallet/multisig").MultisigOptions;
+export type TransactionResult = import("@tetherto/wdk-wallet").TransactionResult;
+export type TransferOptions = import("@tetherto/wdk-wallet").TransferOptions;
+export type KeyPair = import("@tetherto/wdk-wallet").KeyPair;
+export type KeyPairSigner = import("@solana/signers").KeyPairSigner;
+export type SolanaTransaction = import("@tetherto/wdk-wallet-solana").SolanaTransaction;
+export type SignerOptions = import("@tetherto/wdk-wallet-solana").SignerOptions;
+export type ISignerSolana = import("@tetherto/wdk-wallet-solana/signers").ISignerSolana;
+export type MultisigSquadsWalletConfig = import("./wallet-account-read-only-multisig-squads.js").MultisigSquadsWalletConfig;
 /**
  * `MultisigProposal` widened with `transaction` from `MultisigInteractionResult`, and with the
  * approvals a coordinator holds. `transaction` is undefined when an approval only circulates
@@ -304,7 +337,6 @@ export type MultisigProposal = import("@tetherto/wdk-wallet/multisig").MultisigP
 export type MultisigSquadsProposalResult = MultisigProposal & MultisigInteractionResult & {
     pendingConfirmations: number;
 };
-export type MultisigTransactionOptions = import("@tetherto/wdk-wallet/multisig").MultisigTransactionOptions;
 /**
  * `MultisigTransactionOptions` widened with the vault the proposal spends from and the note the
  * call records. `vaultIndex` is an index between 0 and 255, which the stored transaction carries
@@ -316,7 +348,6 @@ export type MultisigSquadsTransactionOptions = MultisigTransactionOptions & {
     vaultIndex?: number;
     memo?: string;
 };
-export type MultisigOptions = import("@tetherto/wdk-wallet/multisig").MultisigOptions;
 /**
  * `MultisigOptions` widened with the Squads permission mask to grant the member being added: a
  * bitwise OR of `PERMISSION.initiate`, `PERMISSION.vote` and `PERMISSION.execute`. Both fields
@@ -325,11 +356,5 @@ export type MultisigOptions = import("@tetherto/wdk-wallet/multisig").MultisigOp
 export type MultisigSquadsAddOwnerOptions = Partial<MultisigOptions> & {
     mask?: number;
 };
-export type TransactionResult = import("@tetherto/wdk-wallet").TransactionResult;
-export type TransferOptions = import("@tetherto/wdk-wallet").TransferOptions;
-export type KeyPair = import("@tetherto/wdk-wallet").KeyPair;
-export type KeyPairSigner = import("@solana/signers").KeyPairSigner;
-export type SolanaTransaction = import("@tetherto/wdk-wallet-solana").SolanaTransaction;
-export type MultisigSquadsWalletConfig = import("./wallet-account-read-only-multisig-squads.js").MultisigSquadsWalletConfig;
 import WalletAccountReadOnlyMultisigSquads from './wallet-account-read-only-multisig-squads.js';
 import { WalletAccountSolana } from '@tetherto/wdk-wallet-solana';

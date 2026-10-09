@@ -7,7 +7,7 @@
 
 **Note**: This package is currently in beta. Please test thoroughly in development environments before using in production.
 
-A [Squads](https://squads.so/) multisig wallet module for WDK (Wallet Development Kit) by Tether, for the Solana blockchain. It follows the same wallet **manager / account** model as [`@tetherto/wdk-wallet-solana`](https://www.npmjs.com/package/@tetherto/wdk-wallet-solana), deriving multisig accounts from a BIP-39 seed phrase and exposing a clean API for creating multisigs and proposing, approving, and executing multisig transactions.
+A [Squads](https://squads.so/) multisig wallet module for WDK (Wallet Development Kit) by Tether, for the Solana blockchain. It follows the same wallet **manager / account** model as [`@tetherto/wdk-wallet-solana`](https://www.npmjs.com/package/@tetherto/wdk-wallet-solana), deriving multisig accounts from a BIP-39 seed phrase or any Solana signer and exposing a clean API for creating multisigs and proposing, approving, and executing multisig transactions.
 
 ## About WDK
 
@@ -48,6 +48,20 @@ console.log('Create tx:', hash)
 account.dispose()
 ```
 
+The member key can come from a signer instead of a seed. A derivable signer becomes the default
+root, and any signer can be registered by name and used as it stands:
+
+```javascript
+import { PrivateKeySignerSolana, SeedSignerSolana } from '@tetherto/wdk-wallet-solana/signers'
+
+const wallet = new WalletManagerMultisigSquads(new SeedSignerSolana(seedPhrase), config)
+
+wallet.addSigner('member', new PrivateKeySignerSolana(privateKey))
+const member = await wallet.getAccount('member')
+```
+
+The manager wipes a signer it built from a seed on `dispose`, and never one it was given.
+
 > [!IMPORTANT]
 > `createKeySecret` is required to create a multisig, and is the only way to recover its
 > address later. To attach to an existing multisig instead, pass `multisigPdaOrCreateKey` and
@@ -57,6 +71,7 @@ account.dispose()
 ## Key Capabilities
 
 - **Seed-Derived Accounts**: Derive multisig accounts from a BIP-39 seed phrase using SLIP-0010 paths
+- **Pluggable Signers**: Vote with any `ISignerSolana` from `@tetherto/wdk-wallet-solana/signers`, including signers that never expose their key
 - **Create Multisig**: Deploy a new Squads multisig with configurable members and threshold
 - **Propose / Approve / Reject / Execute**: Full multisig transaction lifecycle
 - **Transfers**: Propose native SOL and SPL token transfers through the multisig vault

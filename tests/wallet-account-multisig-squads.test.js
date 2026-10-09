@@ -24,6 +24,7 @@ import {
   appendTransactionMessageInstructions,
   compressTransactionMessageUsingAddressLookupTables,
   createTransactionMessage,
+  getCompiledTransactionMessageDecoder,
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash
 } from '@solana/transaction-messages'
@@ -32,6 +33,8 @@ import { compileTransaction, getTransactionDecoder, isFullySignedTransaction } f
 import { AssertionError, MaximumFeeExceededError, NoSuchElementError, UnsupportedOperationError, ValueError } from '@tetherto/wdk-wallet'
 
 import { AccountNotOwnerError, ThresholdNotMetError } from '@tetherto/wdk-wallet/multisig'
+
+import { SeedSignerSolana } from '@tetherto/wdk-wallet-solana/signers'
 
 import { lookupTableAccount, rpcRequests, stubSolanaRpc } from './helpers/rpc.js'
 
@@ -69,6 +72,7 @@ const THIRD_MEMBER = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 // be mistaken for another path's, and the fee they all return.
 const DUMMY_VOTE_HASH = 'deadbeef'
 const DUMMY_DEPLOY_HASH = 'ba5eba11'
+const DEPLOY_BLOCKHASH = 'EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N'
 const DUMMY_CONFIG_HASH = 'facade'
 const DUMMY_PROPOSE_HASH = 'cafebabe'
 const DUMMY_EXECUTE_HASH = 'c0ffee'
@@ -674,6 +678,8 @@ describe('WalletAccountMultisigSquads', () => {
   it('disposes the signer key, so the account can no longer sign', async () => {
     account.dispose()
 
+    expect(account.disposed).toBe(true)
+    expect(account.keyPair.privateKey).toBeNull()
     await expect(account.sign('hello'))
       .rejects.toThrow('The wallet account has been disposed.')
   })
@@ -799,7 +805,11 @@ describe('WalletAccountMultisigSquads', () => {
       const rpc = stubSolanaRpc({
         getAccountInfo: ([queried]) =>
           serveValue(queried === PROGRAM_CONFIG_PDA ? programConfigValue : multisigValue),
-        getMinimumBalanceForRentExemption: () => 2039280
+        getMinimumBalanceForRentExemption: () => 2039280,
+        getLatestBlockhash: () => ({
+          context: { slot: 1 },
+          value: { blockhash: DEPLOY_BLOCKHASH, lastValidBlockHeight: 100 }
+        })
       })
 
       const sendTransaction = jest.fn(async () => ({ hash: DUMMY_DEPLOY_HASH, fee: DUMMY_FEE }))
@@ -808,21 +818,38 @@ describe('WalletAccountMultisigSquads', () => {
       return { account, sendTransaction, rpc }
     }
 
-    it('sends six accounts with createKey and creator as signers', async () => {
+    /**
+     * Decodes the single instruction of the transaction the account sent.
+     *
+     * @param {Function} sendTransaction - The stubbed send.
+     * @returns {{ programAddress: string, accounts: string[], data: Uint8Array }} The instruction.
+     */
+    function sentInstruction (sendTransaction) {
+      const [transaction] = sendTransaction.mock.calls[0]
+      const { staticAccounts, instructions: [instruction] } =
+        getCompiledTransactionMessageDecoder().decode(transaction.messageBytes)
+
+      return {
+        programAddress: staticAccounts[instruction.programAddressIndex],
+        accounts: instruction.accountIndices.map((index) => staticAccounts[index]),
+        data: instruction.data
+      }
+    }
+
+    it('sends six accounts, signed by both the creator and the create key', async () => {
       const { account, sendTransaction } = await deployingAccount()
 
       await account.deploy()
 
-      const [{ instructions }] = sendTransaction.mock.calls[0]
-      const [instruction] = instructions
+      const [transaction] = sendTransaction.mock.calls[0]
+      const instruction = sentInstruction(sendTransaction)
 
       expect(instruction.accounts).toHaveLength(6)
-      expect(instruction.accounts.map((a) => a.role)).toEqual([0, 1, 1, 2, 3, 0])
-      // The createKey must carry a signer for that same key, so kit signs the creation with it.
-      expect(instruction.accounts[3].address).toBe(CREATE_KEY)
-      expect(instruction.accounts[3].signer.address).toBe(CREATE_KEY)
-      expect(instruction.accounts[4].address).toBe(TEST_SIGNER)
+      expect(instruction.accounts[3]).toBe(CREATE_KEY)
+      expect(instruction.accounts[4]).toBe(TEST_SIGNER)
       expect(instruction.programAddress).toBe(SQUADS_PROGRAM_ADDRESS)
+      expect(Object.keys(transaction.signatures)).toEqual([TEST_SIGNER, CREATE_KEY])
+      expect(isFullySignedTransaction(transaction)).toBe(true)
     })
 
     it('charges a configured rentPayer for the creation rather than the signer', async () => {
@@ -832,12 +859,12 @@ describe('WalletAccountMultisigSquads', () => {
 
       await account.deploy()
 
-      const [{ instructions }] = sendTransaction.mock.calls[0]
-      const [instruction] = instructions
+      const [transaction] = sendTransaction.mock.calls[0]
+      const instruction = sentInstruction(sendTransaction)
 
       expect(instruction.accounts).toHaveLength(6)
-      expect(instruction.accounts.map((a) => a.role)).toEqual([0, 1, 1, 2, 3, 0])
-      expect(instruction.accounts[4].address).toBe(OTHER_MEMBER)
+      expect(instruction.accounts[4]).toBe(OTHER_MEMBER)
+      expect(Object.keys(transaction.signatures)).toEqual([TEST_SIGNER, OTHER_MEMBER, CREATE_KEY])
     })
 
     it('defaults to the signer alone with threshold 1', async () => {
@@ -845,8 +872,7 @@ describe('WalletAccountMultisigSquads', () => {
 
       await account.deploy()
 
-      const [{ instructions }] = sendTransaction.mock.calls[0]
-      const data = instructions[0].data
+      const { data } = sentInstruction(sendTransaction)
 
       expect(data).toHaveLength(54)
       // threshold u16 at offset 9, member count u32 at 11
@@ -3100,11 +3126,29 @@ describe('WalletAccountMultisigSquads', () => {
       }
     }
 
-    it('names the member it derived to the coordinator, and nothing else', async () => {
-      const { account, coordinator, coordinatorConfig } = await accountWithCoordinator()
+    it('names the member it derived to the coordinator when it first consults it, and nothing else', async () => {
+      const setup = await accountWithCoordinator()
 
-      expect(account._coordinator).toBe(coordinator)
-      expect(coordinatorConfig).toEqual({ signerAddress: TEST_SIGNER })
+      setup.coordinator.getProposal.mockResolvedValue(
+        bundleOf([approvalOf(TEST_SIGNER), approvalOf(OTHER_MEMBER)])
+      )
+
+      stubSolanaRpc({
+        getMultipleAccounts: () => serveValue([
+          multisigAccountValue(
+            [{ address: TEST_SIGNER, mask: 7 }, { address: OTHER_MEMBER, mask: 7 }],
+            { threshold: 2, transactionIndex: 7n }
+          ),
+          proposalAccountValue({})
+        ])
+      })
+
+      expect(setup.coordinatorConfig).toBeNull()
+
+      await setup.account.approveProposal(3)
+
+      expect(setup.account._coordinator).toBe(setup.coordinator)
+      expect(setup.coordinatorConfig).toEqual({ signerAddress: TEST_SIGNER })
     })
 
     it('has no coordinator when the configuration names none', async () => {
@@ -3188,6 +3232,47 @@ describe('WalletAccountMultisigSquads', () => {
         status: 'pending',
         transaction: undefined
       })
+    })
+
+    it('signs a bundle through a signer that exposes no key pair', async () => {
+      const coordinator = { getProposal: jest.fn(), confirmProposal: jest.fn() }
+      const seedSigner = new SeedSignerSolana(TEST_SEED_PHRASE, "m/44'/501'/0'/0'")
+      const signer = {
+        isDerivable: false,
+        path: null,
+        keyPair: null,
+        disposed: false,
+        getAddress: () => seedSigner.getAddress(),
+        sign: (message) => seedSigner.sign(message),
+        signTransaction: (transaction) => seedSigner.signTransaction(transaction),
+        dispose: () => seedSigner.dispose()
+      }
+      const account = new WalletAccountMultisigSquads(signer, {
+        provider: TEST_RPC_URL,
+        multisigPdaOrCreateKey: TEST_MULTISIG_PDA,
+        coordinator: () => coordinator
+      })
+      const bundle = bundleOf([approvalOf(TEST_SIGNER), approvalOf(OTHER_MEMBER)])
+
+      coordinator.getProposal.mockResolvedValue(bundle)
+
+      stubSolanaRpc({
+        getMultipleAccounts: () => serveValue([
+          multisigAccountValue(
+            [{ address: TEST_SIGNER, mask: 7 }, { address: OTHER_MEMBER, mask: 7 }],
+            { threshold: 2, transactionIndex: 7n }
+          ),
+          proposalAccountValue({})
+        ])
+      })
+
+      await account.approveProposal(3)
+
+      const [[proposalId, signature]] = coordinator.confirmProposal.mock.calls
+
+      expect(account.keyPair).toBeNull()
+      expect(proposalId).toBe('3')
+      expect(await verifySignature(TEST_SIGNER, signature, bundle.messageBytes)).toBe(true)
     })
 
     it('keeps what a bundle has gathered out of the on-chain count', async () => {

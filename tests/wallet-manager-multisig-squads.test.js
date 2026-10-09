@@ -16,7 +16,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals'
 
-import { ProviderRequiredError, ValueError } from '@tetherto/wdk-wallet'
+import { DisposalError, InvalidSignerError, ProviderRequiredError, ValueError } from '@tetherto/wdk-wallet'
+
+import { PrivateKeySignerSolana, SeedSignerSolana } from '@tetherto/wdk-wallet-solana/signers'
 
 import WalletManagerMultisigSquads, {
   WalletAccountMultisigSquads
@@ -33,6 +35,8 @@ const DUMMY_FEES = [{ slot: 1, prioritizationFee: 1000 }]
 
 // The signer key TEST_SEED_PHRASE derives at 0'/0', which three suites need.
 const SIGNER_0 = '3uXqWpwgqKVdiHAwF6Vmu4G4vdQzpR66xjPkz1G7zMKE'
+
+const ACCOUNT_0_PATH = "m/44'/501'/0'/0'"
 
 describe('WalletManagerMultisigSquads', () => {
   let wallet
@@ -67,7 +71,25 @@ describe('WalletManagerMultisigSquads', () => {
     it('should reject an invalid seed phrase', () => {
       expect(() => new WalletManagerMultisigSquads('not a seed phrase', {
         provider: TEST_RPC_URL
-      })).toThrow(new ValueError('Invalid seed phrase.'))
+      })).toThrow(new ValueError('The seed phrase is invalid.'))
+    })
+
+    it('should derive accounts from a default signer', async () => {
+      const signerWallet = new WalletManagerMultisigSquads(new SeedSignerSolana(TEST_SEED_PHRASE), {
+        provider: TEST_RPC_URL
+      })
+
+      const account = await signerWallet.getAccount(0)
+
+      expect(account.path).toBe(ACCOUNT_0_PATH)
+      expect(await account.getSignerAddress()).toBe(SIGNER_0)
+    })
+
+    it('should reject a default signer that cannot derive', () => {
+      const signer = new PrivateKeySignerSolana(new SeedSignerSolana(TEST_SEED_PHRASE, ACCOUNT_0_PATH).keyPair.privateKey)
+
+      expect(() => new WalletManagerMultisigSquads(signer, { provider: TEST_RPC_URL }))
+        .toThrow(InvalidSignerError)
     })
 
     it('should send requests to the first of several providers', async () => {
@@ -109,7 +131,7 @@ describe('WalletManagerMultisigSquads', () => {
 
       expect(account).toBeInstanceOf(WalletAccountMultisigSquads)
       expect(account.index).toBe(0)
-      expect(account.path).toBe("m/44'/501'/0'/0'")
+      expect(account.path).toBe(ACCOUNT_0_PATH)
     })
 
     it('should default to index 0', async () => {
@@ -133,6 +155,19 @@ describe('WalletManagerMultisigSquads', () => {
     it('should return the same account for the same index', async () => {
       expect(await wallet.getAccount(0)).toBe(await wallet.getAccount(0))
     })
+
+    it('should return the account of a registered signer, without deriving', async () => {
+      const signer = new PrivateKeySignerSolana(new SeedSignerSolana(TEST_SEED_PHRASE, ACCOUNT_0_PATH).keyPair.privateKey)
+
+      wallet.addSigner('member', signer)
+
+      const account = await wallet.getAccount('member')
+
+      expect(account.index).toBeNull()
+      expect(account.path).toBeNull()
+      expect(await account.getSignerAddress()).toBe(SIGNER_0)
+      expect(await wallet.getAccount('member')).toBe(account)
+    })
   })
 
   describe('getAccountByPath', () => {
@@ -155,6 +190,15 @@ describe('WalletManagerMultisigSquads', () => {
         .toBe(SIGNER_0_0)
       expect(await (await wallet.getAccountByPath("0'/0'/1'")).getSignerAddress())
         .toBe(SIGNER_0_1)
+    })
+
+    it('should derive from a registered signer', async () => {
+      wallet.addSigner('member', new SeedSignerSolana(TEST_SEED_PHRASE, "m/44'/501'/0'"))
+
+      const account = await wallet.getAccountByPath("0'/1'", { signerName: 'member' })
+
+      expect(account.path).toBe("m/44'/501'/0'/0'/1'")
+      expect(await account.getSignerAddress()).toBe(SIGNER_0_1)
     })
   })
 
@@ -253,14 +297,21 @@ describe('WalletManagerMultisigSquads', () => {
         .rejects.toThrow('The wallet account has been disposed.')
     })
 
-    it('should clear the account cache', async () => {
-      await wallet.getAccount()
-
+    it('should wipe the signer it built from the seed', async () => {
       wallet.dispose()
 
-      // A cached account would be the disposed one, and signing with it throws rather than
-      // returning this signature.
-      expect(await (await wallet.getAccount()).sign('after dispose')).toBe(SIGNATURE_0)
+      await expect(wallet.getAccount()).rejects.toThrow(new DisposalError('The signer has been disposed.'))
+    })
+
+    it('should keep a default signer it was given', async () => {
+      const signer = new SeedSignerSolana(TEST_SEED_PHRASE)
+      const signerWallet = new WalletManagerMultisigSquads(signer, { provider: TEST_RPC_URL })
+
+      await signerWallet.getAccount()
+
+      signerWallet.dispose()
+
+      expect(await (await signer.derive("0'/0'")).sign('after dispose')).toBe(SIGNATURE_0)
     })
   })
 })

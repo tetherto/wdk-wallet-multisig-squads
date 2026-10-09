@@ -14,11 +14,12 @@
 
 'use strict'
 
-import { MaximumFeeExceededError, NoSuchElementError, NotImplementedError, ProviderRequiredError, UnsupportedOperationError, ValueError } from '@tetherto/wdk-wallet'
+import { DisposalError, MaximumFeeExceededError, NoSuchElementError, NotImplementedError, ProviderRequiredError, UnsupportedOperationError, ValueError } from '@tetherto/wdk-wallet'
 
 import { AccountNotOwnerError, ThresholdNotMetError } from '@tetherto/wdk-wallet/multisig'
 
 import { WalletAccountSolana } from '@tetherto/wdk-wallet-solana'
+import { SeedSignerSolana } from '@tetherto/wdk-wallet-solana/signers'
 
 import WalletAccountReadOnlyMultisigSquads, {
   PROPOSAL_DATA_MASK,
@@ -33,10 +34,22 @@ import { SYSTEM_PROGRAM_ADDRESS, getAdvanceNonceAccountDiscriminatorBytes } from
 import { ADDRESS_LOOKUP_TABLE_PROGRAM_ADDRESS } from '@solana-program/address-lookup-table'
 import { COMPUTE_BUDGET_PROGRAM_ADDRESS } from '@solana-program/compute-budget'
 import { MEMO_PROGRAM_ADDRESS } from '@solana-program/memo'
-import { createKeyPairFromPrivateKeyBytes } from '@solana/keys'
 import { createKeyPairSignerFromBytes, createKeyPairSignerFromPrivateKeyBytes } from '@solana/signers'
-import { getCompiledTransactionMessageDecoder } from '@solana/transaction-messages'
-import { getBase64EncodedWireTransaction, isFullySignedTransaction, partiallySignTransaction } from '@solana/transactions'
+import {
+  appendTransactionMessageInstruction,
+  createTransactionMessage,
+  getCompiledTransactionMessageDecoder,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash
+} from '@solana/transaction-messages'
+import {
+  compileTransaction,
+  getBase64EncodedWireTransaction,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  isFullySignedTransaction,
+  partiallySignTransaction
+} from '@solana/transactions'
 
 import {
   ACCOUNT,
@@ -55,6 +68,22 @@ import { getProgramDerivedAddressSync } from './helpers/program-derived-address.
 /** @typedef {import('@tetherto/wdk-wallet/multisig').IMultisigOwnerManagement} IMultisigOwnerManagement */
 /** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigInteractionResult} MultisigInteractionResult */
 /** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigProposal} MultisigProposal */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigTransactionOptions} MultisigTransactionOptions */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigOptions} MultisigOptions */
+
+/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
+/** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
+/** @typedef {import('@tetherto/wdk-wallet').KeyPair} KeyPair */
+
+/** @typedef {import('@solana/signers').KeyPairSigner} KeyPairSigner */
+
+/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransaction} SolanaTransaction */
+/** @typedef {import('@tetherto/wdk-wallet-solana').SignerOptions} SignerOptions */
+
+/** @typedef {import('@tetherto/wdk-wallet-solana/signers').ISignerSolana} ISignerSolana */
+
+/** @typedef {import('./wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletConfig} MultisigSquadsWalletConfig */
+
 /**
  * `MultisigProposal` widened with `transaction` from `MultisigInteractionResult`, and with the
  * approvals a coordinator holds. `transaction` is undefined when an approval only circulates
@@ -65,7 +94,7 @@ import { getProgramDerivedAddressSync } from './helpers/program-derived-address.
  *
  * @typedef {MultisigProposal & MultisigInteractionResult & { pendingConfirmations: number }} MultisigSquadsProposalResult
  */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigTransactionOptions} MultisigTransactionOptions */
+
 /**
  * `MultisigTransactionOptions` widened with the vault the proposal spends from and the note the
  * call records. `vaultIndex` is an index between 0 and 255, which the stored transaction carries
@@ -75,7 +104,7 @@ import { getProgramDerivedAddressSync } from './helpers/program-derived-address.
  *
  * @typedef {MultisigTransactionOptions & { vaultIndex?: number, memo?: string }} MultisigSquadsTransactionOptions
  */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigOptions} MultisigOptions */
+
 /**
  * `MultisigOptions` widened with the Squads permission mask to grant the member being added: a
  * bitwise OR of `PERMISSION.initiate`, `PERMISSION.vote` and `PERMISSION.execute`. Both fields
@@ -83,14 +112,6 @@ import { getProgramDerivedAddressSync } from './helpers/program-derived-address.
  *
  * @typedef {Partial<MultisigOptions> & { mask?: number }} MultisigSquadsAddOwnerOptions
  */
-/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
-/** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
-/** @typedef {import('@tetherto/wdk-wallet').KeyPair} KeyPair */
-/** @typedef {import('@solana/signers').KeyPairSigner} KeyPairSigner */
-
-/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransaction} SolanaTransaction */
-
-/** @typedef {import('./wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletConfig} MultisigSquadsWalletConfig */
 
 /**
  * The Squads member permissions, as the bits of a member's mask.
@@ -102,6 +123,9 @@ export const PERMISSION = { initiate: 1, vote: 2, execute: 4 }
 const ALMIGHTY_PERMISSIONS = PERMISSION.initiate | PERMISSION.vote | PERMISSION.execute
 
 const SEED = { prefix: 'multisig', multisig: 'multisig' }
+
+const BIP_44_SOL_DERIVATION_PATH_PREFIX = "m/44'/501'"
+const ACCOUNT_INDEX_SEGMENT = 3
 
 const DEFAULT = { threshold: 1, timeLock: 0, vaultIndex: 0 }
 
@@ -123,14 +147,28 @@ const BUNDLE_INSTRUCTION = [
  */
 export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMultisigSquads {
   /**
-   * Creates a new Solana Squads multisig wallet account.
+   * Creates a new Solana Squads multisig wallet account from a signer.
    *
+   * @overload
+   * @param {ISignerSolana} signer - The member's signer, derived to an account path.
+   * @param {MultisigSquadsWalletConfig & SignerOptions} config - The configuration object.
+   */
+
+  /**
+   * Creates a new Solana Squads multisig wallet account from a seed.
+   *
+   * @overload
    * @param {string | Uint8Array} seed - A [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) mnemonic seed phrase, or a raw BIP-32 master seed (16-64 bytes).
    * @param {string} path - The SLIP-0010 derivation path (e.g. "0'/0'").
    * @param {MultisigSquadsWalletConfig} config - The configuration object.
    */
-  constructor (seed, path, config) {
-    const signerAccount = new WalletAccountSolana(seed, path, config)
+  constructor (seedOrSigner, pathOrConfig, config) {
+    const isSeed = typeof seedOrSigner === 'string' || seedOrSigner instanceof Uint8Array
+    const signer = isSeed
+      ? new SeedSignerSolana(seedOrSigner, `${BIP_44_SOL_DERIVATION_PATH_PREFIX}/${pathOrConfig}`)
+      : seedOrSigner
+
+    config = isSeed ? config : pathOrConfig
 
     super(config)
 
@@ -140,16 +178,21 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
      * @protected
      * @type {WalletAccountSolana}
      */
-    this._signerAccount = signerAccount
+    this._signerAccount = new WalletAccountSolana(
+      signer, isSeed ? { ...config, shouldWipeSignerOnDisposal: true } : config
+    )
+
+    /** @private */
+    this._signer = signer
 
     /**
      * The coordinator the approvals are circulated through, undefined when the configuration names
-     * none.
+     * none or before the account first needs it.
      *
      * @protected
      * @type {IMultisigCoordinator | undefined}
      */
-    this._coordinator = config.coordinator?.({ signerAddress: signerAccount._address })
+    this._coordinator = undefined
   }
 
   /**
@@ -167,27 +210,36 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
   }
 
   /**
-   * The derivation path's index of this account.
+   * True if the wallet account has been disposed.
    *
-   * @type {number}
+   * @type {boolean}
    */
-  get index () {
-    return this._signerAccount.index
+  get disposed () {
+    return this._signerAccount.disposed
   }
 
   /**
-   * The derivation path of this account (see [SLIP-0010](https://slips.readthedocs.io/en/latest/slip-0010/)).
+   * The derivation path's index of this account, or null for a signer bound to no derivation path.
    *
-   * @type {string}
+   * @type {number | null}
+   */
+  get index () {
+    return this.path === null ? null : +this.path.split('/')[ACCOUNT_INDEX_SEGMENT].replace("'", '')
+  }
+
+  /**
+   * The derivation path of this account (see [SLIP-0010](https://slips.readthedocs.io/en/latest/slip-0010/)), or null for a signer bound to no derivation path.
+   *
+   * @type {string | null}
    */
   get path () {
     return this._signerAccount.path
   }
 
   /**
-   * The key pair of the signer account.
+   * The key pair of the signer account, or null for a signer that exposes no key material.
    *
-   * @type {KeyPair}
+   * @type {KeyPair | null}
    */
   get keyPair () {
     return this._signerAccount.keyPair
@@ -302,11 +354,7 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
         { address: address(programConfigPda), role: AccountRole.READONLY },
         { address: address(treasury), role: AccountRole.WRITABLE },
         { address: address(expectedPda), role: AccountRole.WRITABLE },
-        {
-          address: createKeySigner.address,
-          role: AccountRole.READONLY_SIGNER,
-          signer: createKeySigner
-        },
+        { address: createKeySigner.address, role: AccountRole.READONLY_SIGNER },
         this._getRentPayerAccount(signerAddress),
         { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY }
       ],
@@ -323,7 +371,20 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
       })
     }
 
-    const { hash } = await this._signerAccount.sendTransaction({ instructions: [instruction] })
+    const { value: lifetime } = await this._rpc
+      .getLatestBlockhash({ commitment: this._commitment })
+      .send()
+    const message = appendTransactionMessageInstruction(
+      instruction,
+      setTransactionMessageLifetimeUsingBlockhash(
+        lifetime,
+        setTransactionMessageFeePayer(address(signerAddress), createTransactionMessage({ version: 0 }))
+      )
+    )
+    const transaction = await partiallySignTransaction(
+      [createKeySigner.keyPair], compileTransaction(message)
+    )
+    const { hash } = await this._signerAccount.sendTransaction(await this._signTransaction(transaction))
 
     return { hash }
   }
@@ -401,7 +462,8 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
       throw new ValueError(`The signer ${signerAddress} has already approved the proposal ${index}.`)
     }
 
-    const bundle = await this._coordinator?.getProposal(index.toString())
+    const coordinator = await this._getCoordinator()
+    const bundle = await coordinator?.getProposal(index.toString())
 
     if (bundle) {
       const { approvers, executes } =
@@ -427,12 +489,10 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
         throw new MaximumFeeExceededError('Exceeded maximum fee cost for the approve operation.')
       }
 
-      const signed = await partiallySignTransaction(
-        [await createKeyPairFromPrivateKeyBytes(this._signerAccount.keyPair.privateKey)], bundle
-      )
+      const signed = await this._signTransaction(bundle)
       const complete = isFullySignedTransaction(signed)
 
-      await this._coordinator.confirmProposal(
+      await coordinator.confirmProposal(
         index.toString(), getBase58Decoder().decode(signed.signatures[signerAddress])
       )
 
@@ -863,7 +923,7 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
   }
 
   /**
-   * Disposes the wallet account, erasing the private key from the memory.
+   * Disposes the wallet account. The signer is wiped only if the account owns it (see {@link SignerOptions}).
    *
    * @returns {void} Nothing; the account cannot sign once disposed.
    */
@@ -891,6 +951,28 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
         rent: options.rent
       }
     )
+  }
+
+  /** @private */
+  async _getCoordinator () {
+    if (!this._coordinator && this._config.coordinator) {
+      this._coordinator = this._config.coordinator({ signerAddress: await this.getSignerAddress() })
+    }
+
+    return this._coordinator
+  }
+
+  /** @private */
+  async _signTransaction (transaction) {
+    if (this.disposed) {
+      throw new DisposalError('The wallet account has been disposed.')
+    }
+
+    const signed = await this._signer.signTransaction(
+      Uint8Array.from(getTransactionEncoder().encode(transaction))
+    )
+
+    return getTransactionDecoder().decode(signed)
   }
 
   /** @private */

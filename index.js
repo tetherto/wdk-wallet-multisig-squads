@@ -37,11 +37,6 @@
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').MultisigSquadsWalletReadOnlyConfig} MultisigSquadsWalletReadOnlyConfig */
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').MultisigSquadsInfo} MultisigSquadsInfo */
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').MultisigSquadsProposal} MultisigSquadsProposal */
-/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsProposalResult} MultisigSquadsProposalResult */
-/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsTransactionOptions} MultisigSquadsTransactionOptions */
-/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsAddOwnerOptions} MultisigSquadsAddOwnerOptions */
-/** @typedef {import('./src/coordinators/index.js').MultisigCoordinatorFactory} MultisigCoordinatorFactory */
-
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsMember} SquadsMember */
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsMultisigAccount} SquadsMultisigAccount */
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsProposalAccount} SquadsProposalAccount */
@@ -53,6 +48,12 @@
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsTransactionAccount} SquadsTransactionAccount */
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsProgramConfig} SquadsProgramConfig */
 /** @typedef {import('./src/wallet-account-read-only-multisig-squads.js').SquadsProposalContext} SquadsProposalContext */
+
+/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsProposalResult} MultisigSquadsProposalResult */
+/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsTransactionOptions} MultisigSquadsTransactionOptions */
+/** @typedef {import('./src/wallet-account-multisig-squads.js').MultisigSquadsAddOwnerOptions} MultisigSquadsAddOwnerOptions */
+
+/** @typedef {import('./src/coordinators/index.js').MultisigCoordinatorFactory} MultisigCoordinatorFactory */
 
 // ============================================
 // Export classes and constants
@@ -72,4 +73,4 @@ export { IMultisigCoordinator } from './src/coordinators/index.js'
 
 export { AccountNotOwnerError, ThresholdNotMetError } from '@tetherto/wdk-wallet/multisig'
 
-export { AssertionError, InvalidTokenError, MaximumFeeExceededError, NoSuchElementError, NotImplementedError, ProviderError, ProviderErrorReason, ProviderRequiredError, UnsupportedOperationError, ValueError, WdkError } from '@tetherto/wdk-wallet'
+export { AssertionError, DisposalError, InvalidSignerError, InvalidTokenError, MaximumFeeExceededError, NoSuchElementError, NotImplementedError, ProviderError, ProviderErrorReason, ProviderRequiredError, UnsupportedOperationError, ValueError, WdkError } from '@tetherto/wdk-wallet'

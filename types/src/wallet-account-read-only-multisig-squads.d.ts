@@ -4,6 +4,16 @@
 /** @typedef {import('@solana/instructions').AccountMeta} AccountMeta */
 /** @typedef {import('@solana/instructions').Instruction} Instruction */
 /** @typedef {import('@solana/codecs-core').ReadonlyUint8Array} ReadonlyUint8Array */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').IWalletAccountReadOnlyMultisig} IWalletAccountReadOnlyMultisig */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigInfo} MultisigInfo */
+/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigProposal} MultisigProposal */
+/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
+/** @typedef {import('@tetherto/wdk-wallet').TransactionReceipt} TransactionReceipt */
+/** @typedef {import('@tetherto/wdk-wallet').Finality} Finality */
+/** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
+/** @typedef {import('./coordinators/index.js').MultisigCoordinatorFactory} MultisigCoordinatorFactory */
+/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransaction} SolanaTransaction */
+/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransactionReceipt} SolanaTransactionReceipt */
 /**
  * A kit instruction with the two halves kit leaves optional. Every instruction this package builds
  * carries both, and `_compileTransactionMessage` reads both.
@@ -22,26 +32,16 @@
  * @property {number} numWritableSigners - How many of those signers are writable.
  * @property {number} numWritableNonSigners - How many non-signers after them are writable.
  */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').IWalletAccountReadOnlyMultisig} IWalletAccountReadOnlyMultisig */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigInfo} MultisigInfo */
 /**
  * `MultisigInfo` widened with each owner's Squads permission mask, aligned with `owners`.
  *
  * @typedef {MultisigInfo & { masks: number[] }} MultisigSquadsInfo
  */
-/** @typedef {import('@tetherto/wdk-wallet/multisig').MultisigProposal} MultisigProposal */
 /**
  * `MultisigProposal` widened with the proposal's Squads status and its vote lists.
  *
  * @typedef {MultisigProposal & { statusName: string, approved: string[], rejected: string[], cancelled: string[] }} MultisigSquadsProposal
  */
-/** @typedef {import('@tetherto/wdk-wallet').TransactionResult} TransactionResult */
-/** @typedef {import('@tetherto/wdk-wallet').TransactionReceipt} TransactionReceipt */
-/** @typedef {import('@tetherto/wdk-wallet').Finality} Finality */
-/** @typedef {import('@tetherto/wdk-wallet').TransferOptions} TransferOptions */
-/** @typedef {import('./coordinators/index.js').MultisigCoordinatorFactory} MultisigCoordinatorFactory */
-/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransaction} SolanaTransaction */
-/** @typedef {import('@tetherto/wdk-wallet-solana').SolanaTransactionReceipt} SolanaTransactionReceipt */
 /**
  * The configuration a read-only Squads account takes: how to reach the cluster, and which
  * multisig to operate on. Two fields name the multisig: its address, or the create key it derives
@@ -174,11 +174,6 @@ export const SQUADS_PROGRAM_ADDRESS: "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pC
  * @type {{ [K in SquadsTransactionKind]: K }}
  */
 export const TRANSACTION_KIND: { [K in SquadsTransactionKind]: K; };
-export const SIGNATURE_BASE_FEE: bigint;
-export namespace SECRET_SIZE {
-    let privateKey: number;
-    let keyPair: number;
-}
 /** @type {{ multisig: 8, proposal: 4, transaction: 2, now: 1, all: 15 }} */
 export const PROPOSAL_DATA_MASK: {
     multisig: 8;
@@ -187,6 +182,11 @@ export const PROPOSAL_DATA_MASK: {
     now: 1;
     all: 15;
 };
+export namespace SECRET_SIZE {
+    let privateKey: number;
+    let keyPair: number;
+}
+export const SIGNATURE_BASE_FEE: 5000n;
 /**
  * Read-only Solana Squads multisig wallet account implementation.
  *
@@ -228,13 +228,6 @@ export default class WalletAccountReadOnlyMultisigSquads extends WalletAccountRe
      * @returns {SolanaRpc | undefined} The client, or undefined when no provider is configured.
      */
     static createRpc({ provider, retries }?: MultisigSquadsWalletReadOnlyConfig): SolanaRpc | undefined;
-    /**
-     * The default poll cadence for `waitForTransaction`, one slot rather than the block time the
-     * base class assumes.
-     *
-     * @type {number}
-     */
-    get defaultWaitInterval(): number;
     /**
      * Creates a new read-only Solana Squads multisig wallet account.
      *
@@ -329,30 +322,6 @@ export default class WalletAccountReadOnlyMultisigSquads extends WalletAccountRe
      * @throws {ValueError} The signature must be 64 base58-encoded bytes.
      */
     getTransactionReceipt(hash: string): Promise<SolanaTransactionReceipt | null>;
-    /**
-     * Retrieves a transaction's normalized receipt, which `waitForTransaction` polls.
-     *
-     * A signature the cluster has evicted and one it has never seen are indistinguishable without
-     * the transaction's blockhash, which a signature alone does not carry, so a dropped transaction
-     * raises `NoSuchElementError` rather than reporting a `dropped` finality. A caller waiting on
-     * one therefore times out instead of being told it was dropped.
-     *
-     * @param {string} hash - The transaction signature.
-     * @returns {Promise<TransactionReceipt>} The normalized receipt. `fee` is omitted while the transaction is below the account's commitment.
-     * @throws {ProviderRequiredError} The wallet must be connected to a provider.
-     * @throws {ValueError} The signature must be 64 base58-encoded bytes.
-     * @throws {NoSuchElementError} The cluster must hold a status for the signature.
-     */
-    getTransaction(hash: string): Promise<TransactionReceipt>;
-    /**
-     * Verifies a message's signature. Not supported by Squads.
-     *
-     * @param {string} message - The signed message.
-     * @param {string} signature - The signature to verify.
-     * @returns {Promise<boolean>} Whether the signature is valid.
-     * @throws {UnsupportedOperationError} A multisig address has no private key to attribute a signature to.
-     */
-    verify(message: string, signature: string): Promise<boolean>;
     /**
      * Returns the proposals at the given ids, keyed by id in canonical decimal form.
      *
@@ -629,6 +598,16 @@ export type Address = import("@solana/addresses").Address;
 export type AccountMeta = import("@solana/instructions").AccountMeta;
 export type Instruction = import("@solana/instructions").Instruction;
 export type ReadonlyUint8Array = import("@solana/codecs-core").ReadonlyUint8Array;
+export type IWalletAccountReadOnlyMultisig = import("@tetherto/wdk-wallet/multisig").IWalletAccountReadOnlyMultisig;
+export type MultisigInfo = import("@tetherto/wdk-wallet/multisig").MultisigInfo;
+export type MultisigProposal = import("@tetherto/wdk-wallet/multisig").MultisigProposal;
+export type TransactionResult = import("@tetherto/wdk-wallet").TransactionResult;
+export type TransactionReceipt = import("@tetherto/wdk-wallet").TransactionReceipt;
+export type Finality = import("@tetherto/wdk-wallet").Finality;
+export type TransferOptions = import("@tetherto/wdk-wallet").TransferOptions;
+export type MultisigCoordinatorFactory = import("./coordinators/index.js").MultisigCoordinatorFactory;
+export type SolanaTransaction = import("@tetherto/wdk-wallet-solana").SolanaTransaction;
+export type SolanaTransactionReceipt = import("@tetherto/wdk-wallet-solana").SolanaTransactionReceipt;
 /**
  * A kit instruction with the two halves kit leaves optional. Every instruction this package builds
  * carries both, and `_compileTransactionMessage` reads both.
@@ -667,15 +646,12 @@ export type CompiledTransactionMessage = {
      */
     numWritableNonSigners: number;
 };
-export type IWalletAccountReadOnlyMultisig = import("@tetherto/wdk-wallet/multisig").IWalletAccountReadOnlyMultisig;
-export type MultisigInfo = import("@tetherto/wdk-wallet/multisig").MultisigInfo;
 /**
  * `MultisigInfo` widened with each owner's Squads permission mask, aligned with `owners`.
  */
 export type MultisigSquadsInfo = MultisigInfo & {
     masks: number[];
 };
-export type MultisigProposal = import("@tetherto/wdk-wallet/multisig").MultisigProposal;
 /**
  * `MultisigProposal` widened with the proposal's Squads status and its vote lists.
  */
@@ -685,13 +661,6 @@ export type MultisigSquadsProposal = MultisigProposal & {
     rejected: string[];
     cancelled: string[];
 };
-export type TransactionResult = import("@tetherto/wdk-wallet").TransactionResult;
-export type TransactionReceipt = import("@tetherto/wdk-wallet").TransactionReceipt;
-export type Finality = import("@tetherto/wdk-wallet").Finality;
-export type TransferOptions = import("@tetherto/wdk-wallet").TransferOptions;
-export type MultisigCoordinatorFactory = import("./coordinators/index.js").MultisigCoordinatorFactory;
-export type SolanaTransaction = import("@tetherto/wdk-wallet-solana").SolanaTransaction;
-export type SolanaTransactionReceipt = import("@tetherto/wdk-wallet-solana").SolanaTransactionReceipt;
 /**
  * The configuration a read-only Squads account takes: how to reach the cluster, and which
  * multisig to operate on. Two fields name the multisig: its address, or the create key it derives

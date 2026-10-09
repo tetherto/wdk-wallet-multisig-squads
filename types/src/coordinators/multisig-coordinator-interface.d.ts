@@ -7,8 +7,10 @@
 /**
  * Coordinator for collecting a proposal's approvals into one transaction. It compiles the bundle and
  * circulates it; the account signs, and the member whose signature completes it broadcasts.
+ *
+ * @interface
  */
-export interface IMultisigCoordinator {
+export class IMultisigCoordinator {
     /**
      * Returns the compiled bundle this member should sign, which must carry its own approval of that
      * proposal, or null to leave it voting alone in its own transaction.
@@ -34,9 +36,7 @@ export interface IMultisigCoordinator {
 }
 export type Transaction = import("@solana/transactions").Transaction;
 /**
- * Builds the coordinator an account votes through. One configuration is shared by every account a
- * manager derives, and each signs with a different key, so it carries a factory rather than an
- * instance.
+ * Builds the coordinator an account votes through, over the address of the member it will serve.
  */
 export type MultisigCoordinatorFactory = (config: {
     signerAddress: string;
