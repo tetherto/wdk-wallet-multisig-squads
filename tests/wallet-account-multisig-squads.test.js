@@ -24,6 +24,8 @@ import {
   appendTransactionMessageInstructions,
   compressTransactionMessageUsingAddressLookupTables,
   createTransactionMessage,
+  getCompiledTransactionMessageDecoder,
+  getCompiledTransactionMessageEncoder,
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash
 } from '@solana/transaction-messages'
@@ -553,6 +555,30 @@ function compressedBundleOf (instructions, borrowed) {
     (m) => appendTransactionMessageInstructions(instructions, m),
     (m) => compressTransactionMessageUsingAddressLookupTables(m, { [TEST_LOOKUP_TABLE]: borrowed })
   ))
+}
+
+/**
+ * The same bundle with one instruction's program named by a lookup table index instead of a static
+ * one. The SDK will not compile that, because the cluster will not run it, but a coordinator
+ * writing the bytes itself can.
+ *
+ * @param {Object} bundle - The compiled bundle.
+ * @param {number} at - The instruction whose program is borrowed.
+ * @returns {Object} The bundle, with that instruction's program borrowed.
+ */
+function borrowedProgramIn (bundle, at) {
+  const message = getCompiledTransactionMessageDecoder().decode(bundle.messageBytes)
+
+  return {
+    ...bundle,
+    messageBytes: new Uint8Array(getCompiledTransactionMessageEncoder().encode({
+      ...message,
+      instructions: message.instructions.map((instruction, index) => index === at
+        ? { ...instruction, programAddressIndex: message.staticAccounts.length }
+        : instruction
+      )
+    }))
+  }
 }
 
 /**
@@ -3423,18 +3449,16 @@ describe('WalletAccountMultisigSquads', () => {
       expect(result.transaction).toEqual({ hash: DUMMY_VOTE_HASH, fee: BUNDLE_FEE })
     })
 
-    it('resolves a bundle compressed with an address lookup table', async () => {
+    it('refuses a bundle that borrows the multisig and the proposal from a lookup table', async () => {
       const { account, coordinator } = await accountWithCoordinator()
 
-      // The multisig and the proposal are borrowed from the table, so neither is a static account
-      // any more. Only the member has to stay static, because a signer cannot be borrowed.
       const borrowed = [TEST_PROPOSAL_PDA_3, TEST_MULTISIG_PDA]
 
       coordinator.getProposal.mockResolvedValue(
         compressedBundleOf([approvalOf(TEST_SIGNER)], borrowed)
       )
 
-      stubSolanaRpc({
+      const rpc = stubSolanaRpc({
         getMultipleAccounts: ([addresses]) => addresses.includes(TEST_LOOKUP_TABLE)
           ? serveValue([lookupTableAccount(
             ADDRESS_LOOKUP_TABLE_PROGRAM,
@@ -3447,8 +3471,103 @@ describe('WalletAccountMultisigSquads', () => {
             ),
             proposalAccountValue({})
           ]),
-        getFeeForMessage: () => serveValue(BUNDLE_FEE),
         sendTransaction: () => DUMMY_VOTE_HASH
+      })
+
+      await expect(account.approveProposal(3)).rejects.toThrow(
+        new ValueError(
+          `The bundle the coordinator holds for the proposal ${TEST_PROPOSAL_PDA_3} carries a Squads instruction that does not name the multisig, the proposal and the approving member among the 2 accounts the bundle itself carries, and a member signs every instruction in it.`
+        )
+      )
+      expect(coordinator.confirmProposal).not.toHaveBeenCalled()
+      expect(rpcRequests(rpc, 'sendTransaction')).toEqual([])
+    })
+
+    it('refuses a borrowed proposal a node resolves to the one being approved', async () => {
+      const { account, coordinator } = await accountWithCoordinator()
+
+      // The table really holds another of this multisig's proposals; the node reports the one
+      // the member asked about.
+      coordinator.getProposal.mockResolvedValue(
+        compressedBundleOf([approvalOf(TEST_SIGNER, TEST_PROPOSAL_PDA_4)], [TEST_PROPOSAL_PDA_4])
+      )
+
+      const rpc = stubSolanaRpc({
+        getMultipleAccounts: ([addresses]) => addresses.includes(TEST_LOOKUP_TABLE)
+          ? serveValue([lookupTableAccount(
+            ADDRESS_LOOKUP_TABLE_PROGRAM,
+            [getBase58Encoder().encode(TEST_PROPOSAL_PDA_3)]
+          )])
+          : serveValue([
+            multisigAccountValue(
+              [{ address: TEST_SIGNER, mask: 7 }, { address: OTHER_MEMBER, mask: 7 }],
+              { threshold: 2, transactionIndex: 7n }
+            ),
+            proposalAccountValue({})
+          ]),
+        sendTransaction: () => DUMMY_VOTE_HASH
+      })
+
+      await expect(account.approveProposal(3)).rejects.toThrow(
+        new ValueError(
+          `The bundle the coordinator holds for the proposal ${TEST_PROPOSAL_PDA_3} carries a Squads instruction that does not name the multisig, the proposal and the approving member among the 3 accounts the bundle itself carries, and a member signs every instruction in it.`
+        )
+      )
+      expect(coordinator.confirmProposal).not.toHaveBeenCalled()
+      expect(rpcRequests(rpc, 'sendTransaction')).toEqual([])
+    })
+
+    it('refuses a bundle whose Squads instruction names no accounts', async () => {
+      const { account, coordinator } = await accountWithCoordinator()
+
+      coordinator.getProposal.mockResolvedValue(bundleOf([{
+        programAddress: SQUADS_PROGRAM_ADDRESS,
+        accounts: [],
+        data: new Uint8Array(APPROVE_DISCRIMINATOR)
+      }]))
+
+      const rpc = stubSolanaRpc({
+        getMultipleAccounts: () => serveValue([
+          multisigAccountValue(
+            [{ address: TEST_SIGNER, mask: 7 }, { address: OTHER_MEMBER, mask: 7 }],
+            { threshold: 2, transactionIndex: 7n }
+          ),
+          proposalAccountValue({})
+        ]),
+        sendTransaction: () => DUMMY_VOTE_HASH
+      })
+
+      await expect(account.approveProposal(3)).rejects.toThrow(
+        new ValueError(
+          `The bundle the coordinator holds for the proposal ${TEST_PROPOSAL_PDA_3} carries a Squads instruction that does not name the multisig, the proposal and the approving member among the 2 accounts the bundle itself carries, and a member signs every instruction in it.`
+        )
+      )
+      expect(coordinator.confirmProposal).not.toHaveBeenCalled()
+      expect(rpcRequests(rpc, 'sendTransaction')).toEqual([])
+    })
+
+    it('takes a bundle borrowing accounts it does not read the proposal by', async () => {
+      const { account, coordinator } = await accountWithCoordinator()
+
+      const bundle = compressedBundleOf([approvalOf(TEST_SIGNER), executionOf()], [TEST_VAULT_PDA])
+
+      coordinator.getProposal.mockResolvedValue(bundle)
+
+      const rpc = stubSolanaRpc({
+        getMultipleAccounts: ([addresses]) => addresses.includes(TEST_LOOKUP_TABLE)
+          ? serveValue([lookupTableAccount(
+            ADDRESS_LOOKUP_TABLE_PROGRAM,
+            [getBase58Encoder().encode(TEST_VAULT_PDA)]
+          )])
+          : serveValue([
+            multisigAccountValue(
+              [{ address: TEST_SIGNER, mask: 7 }, { address: OTHER_MEMBER, mask: 7 }],
+              { threshold: 1, transactionIndex: 7n }
+            ),
+            proposalAccountValue({})
+          ]),
+        getFeeForMessage: () => serveValue(BUNDLE_FEE),
+        sendTransaction: () => DUMMY_EXECUTE_HASH
       })
 
       const result = await account.approveProposal(3)
@@ -3457,10 +3576,47 @@ describe('WalletAccountMultisigSquads', () => {
         proposalId: '3',
         confirmations: 1,
         pendingConfirmations: 0,
-        threshold: 2,
-        status: 'pending',
-        transaction: { hash: DUMMY_VOTE_HASH, fee: BUNDLE_FEE }
+        threshold: 1,
+        status: 'executed',
+        transaction: { hash: DUMMY_EXECUTE_HASH, fee: BUNDLE_FEE }
       })
+
+      const [[broadcast]] = rpcRequests(rpc, 'sendTransaction')
+
+      expect(getTransactionDecoder().decode(getBase64Encoder().encode(broadcast)).messageBytes)
+        .toEqual(bundle.messageBytes)
+    })
+
+    it('refuses an instruction whose program is borrowed from a lookup table', async () => {
+      const { account, coordinator } = await accountWithCoordinator()
+
+      coordinator.getProposal.mockResolvedValue(borrowedProgramIn(
+        compressedBundleOf([approvalOf(TEST_SIGNER), executionOf()], [TEST_VAULT_PDA]), 1
+      ))
+
+      const rpc = stubSolanaRpc({
+        getMultipleAccounts: ([addresses]) => addresses.includes(TEST_LOOKUP_TABLE)
+          ? serveValue([lookupTableAccount(
+            ADDRESS_LOOKUP_TABLE_PROGRAM,
+            [getBase58Encoder().encode(TEST_VAULT_PDA)]
+          )])
+          : serveValue([
+            multisigAccountValue(
+              [{ address: TEST_SIGNER, mask: 7 }, { address: OTHER_MEMBER, mask: 7 }],
+              { threshold: 1, transactionIndex: 7n }
+            ),
+            proposalAccountValue({})
+          ]),
+        sendTransaction: () => DUMMY_EXECUTE_HASH
+      })
+
+      await expect(account.approveProposal(3)).rejects.toThrow(
+        new ValueError(
+          `The bundle the coordinator holds for the proposal ${TEST_PROPOSAL_PDA_3} carries an instruction whose program is not among the 4 accounts the bundle itself carries, and a member signs every instruction in it.`
+        )
+      )
+      expect(coordinator.confirmProposal).not.toHaveBeenCalled()
+      expect(rpcRequests(rpc, 'sendTransaction')).toEqual([])
     })
 
     it('refuses a bundle whose lookup table cannot be read', async () => {

@@ -182,7 +182,10 @@ What the account does with what you return, which is the part you can rely on:
   compute budget instruction is allowed through, and it is what buys a priority fee, so the ceiling
   is what bounds the lamports a bundle can cost the fee payer.
 - It never appends to the transaction and never recompiles it, so signatures already collected
-  stay valid. Address lookup tables are fine; the account reads them to resolve borrowed indices.
+  stay valid. Address lookup tables are fine for the accounts it does not read the bundle by, but
+  the ones it does, every instruction's program and the multisig, the proposal and the approving
+  member, must be static: resolving those indices would mean asking a node what the member is
+  about to sign.
 
 > [!IMPORTANT]
 > The transaction must be compiled. A signature covers the message bytes, so those bytes have to

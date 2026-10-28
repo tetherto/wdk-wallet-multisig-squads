@@ -384,7 +384,7 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
    * @param {number | bigint | string} proposalId - The proposal (transaction index) id.
    * @param {MultisigSquadsTransactionOptions} [transactionOptions] - The multisig transaction's options. `memo` is the note recorded on chain with the vote. `autoExecute` executes the proposal in the same transaction only when it can: this approval reaching the threshold, no time lock, and a signer holding execute on top of the vote. Where it does not apply, it goes inert and the result's `status` stays `'pending'` rather than throwing. `vaultIndex` does not bear on a vote. None of the three applies to a coordinator's bundle, which has decided them already.
    * @returns {Promise<MultisigSquadsProposalResult>} The approval result. `status` is `'executed'` when the execution ran in the same transaction, in which case `transaction` is that execution rather than a bare submission. Through a coordinator, `fee` is what the bundle's own fee payer is charged. A vote that only circulated adds nothing to `confirmations`, which the chain still governs; it counts in `pendingConfirmations`, with the other approvals the bundle has collected a signature for, and reports `transaction: undefined`.
-   * @throws {ValueError} The signer must not have approved the proposal already, and a coordinator's bundle must carry this signer's approval and no member's twice.
+   * @throws {ValueError} The signer must not have approved the proposal already, a coordinator's bundle must carry this signer's approval and no member's twice, and the accounts that bundle is read by, every instruction's program and the multisig, the proposal and the approving member, must be static rather than borrowed from an address lookup table.
    * @throws {MaximumFeeExceededError} A coordinator's bundle must quote within `approveMaxFee`.
    */
   async approveProposal (proposalId, { memo, autoExecute } = {}) {
@@ -516,11 +516,27 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
       accounts.push(...writable, ...readonly)
     }
 
-    const named = (instruction, slot) => accounts[instruction.accountIndices?.[slot]]
+    const named = (instruction, slot) => {
+      const index = instruction.accountIndices?.[slot]
+
+      if (!(index < staticAccounts.length)) {
+        throw new ValueError(
+          `The bundle the coordinator holds for the proposal ${proposalAddress} carries a Squads instruction that does not name the multisig, the proposal and the approving member among the ${staticAccounts.length} accounts the bundle itself carries, and a member signs every instruction in it.`
+        )
+      }
+
+      return accounts[index]
+    }
     const approvers = []
     let executes = false
 
     for (const instruction of instructions) {
+      if (!(instruction.programAddressIndex < staticAccounts.length)) {
+        throw new ValueError(
+          `The bundle the coordinator holds for the proposal ${proposalAddress} carries an instruction whose program is not among the ${staticAccounts.length} accounts the bundle itself carries, and a member signs every instruction in it.`
+        )
+      }
+
       const program = accounts[instruction.programAddressIndex]
 
       if (program !== this._programId) {

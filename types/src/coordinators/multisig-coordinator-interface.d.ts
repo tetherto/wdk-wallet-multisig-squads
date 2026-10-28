@@ -11,7 +11,9 @@
 export interface IMultisigCoordinator {
     /**
      * Returns the compiled bundle this member should sign, which must carry its own approval of that
-     * proposal, or null to leave it voting alone in its own transaction.
+     * proposal, or null to leave it voting alone in its own transaction. It may borrow accounts from
+     * an address lookup table, except the ones the account reads it by: every instruction's program,
+     * the multisig, the proposal and the approving member have to be static.
      *
      * @param {string} proposalId - The proposal (transaction index) id.
      * @returns {Promise<Transaction | null>} The bundle, or null.
