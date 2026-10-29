@@ -31,7 +31,15 @@ import { getBase58Decoder, getBase64Decoder, getBase64Encoder } from '@solana/co
 import { AccountRole } from '@solana/instructions'
 import { SYSTEM_PROGRAM_ADDRESS, getAdvanceNonceAccountDiscriminatorBytes } from '@solana-program/system'
 import { ADDRESS_LOOKUP_TABLE_PROGRAM_ADDRESS } from '@solana-program/address-lookup-table'
-import { COMPUTE_BUDGET_PROGRAM_ADDRESS } from '@solana-program/compute-budget'
+import {
+  COMPUTE_BUDGET_PROGRAM_ADDRESS,
+  MAX_COMPUTE_UNIT_LIMIT,
+  getRequestUnitsDiscriminatorBytes,
+  getSetComputeUnitLimitDiscriminatorBytes,
+  getSetComputeUnitLimitInstructionDataDecoder,
+  getSetComputeUnitPriceDiscriminatorBytes,
+  getSetComputeUnitPriceInstructionDataDecoder
+} from '@solana-program/compute-budget'
 import { MEMO_PROGRAM_ADDRESS } from '@solana-program/memo'
 import { createKeyPairFromPrivateKeyBytes } from '@solana/keys'
 import { createKeyPairSignerFromBytes, createKeyPairSignerFromPrivateKeyBytes } from '@solana/signers'
@@ -114,6 +122,10 @@ const BUNDLE_INSTRUCTION = [
   { discriminator: INSTRUCTION_DISCRIMINATOR.vaultTransactionExecute, proposal: 1 },
   { discriminator: INSTRUCTION_DISCRIMINATOR.configTransactionExecute, proposal: 2 }
 ]
+
+const COMPUTE_UNITS_PER_INSTRUCTION = 200_000
+const MAX_COMPUTE_UNITS = BigInt(MAX_COMPUTE_UNIT_LIMIT)
+const MICRO_LAMPORTS_PER_LAMPORT = 1_000_000n
 
 /**
  * Solana Squads multisig wallet account implementation.
@@ -383,9 +395,9 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
    *
    * @param {number | bigint | string} proposalId - The proposal (transaction index) id.
    * @param {MultisigSquadsTransactionOptions} [transactionOptions] - The multisig transaction's options. `memo` is the note recorded on chain with the vote. `autoExecute` executes the proposal in the same transaction only when it can: this approval reaching the threshold, no time lock, and a signer holding execute on top of the vote. Where it does not apply, it goes inert and the result's `status` stays `'pending'` rather than throwing. `vaultIndex` does not bear on a vote. None of the three applies to a coordinator's bundle, which has decided them already.
-   * @returns {Promise<MultisigSquadsProposalResult>} The approval result. `status` is `'executed'` when the execution ran in the same transaction, in which case `transaction` is that execution rather than a bare submission. Through a coordinator, `fee` is what the bundle's own fee payer is charged. A vote that only circulated adds nothing to `confirmations`, which the chain still governs; it counts in `pendingConfirmations`, with the other approvals the bundle has collected a signature for, and reports `transaction: undefined`.
-   * @throws {ValueError} The signer must not have approved the proposal already, and a coordinator's bundle must carry this signer's approval and no member's twice.
-   * @throws {MaximumFeeExceededError} A coordinator's bundle must quote within `approveMaxFee`.
+   * @returns {Promise<MultisigSquadsProposalResult>} The approval result. `status` is `'executed'` when the execution ran in the same transaction, in which case `transaction` is that execution rather than a bare submission. Through a coordinator, `fee` is what the cluster quotes for the bundle's own fee payer, which is not the figure `approveMaxFee` bounds. A vote that only circulated adds nothing to `confirmations`, which the chain still governs; it counts in `pendingConfirmations`, with the other approvals the bundle has collected a signature for, and reports `transaction: undefined`.
+   * @throws {ValueError} The signer must not have approved the proposal already, and a coordinator's bundle must carry this signer's approval and no member's twice, and ask for compute units the current way rather than the deprecated one that carries a fee of its own, in an instruction this account can read.
+   * @throws {MaximumFeeExceededError} A coordinator's bundle must cost its fee payer within `approveMaxFee`, and where that is unset and the bundle charges this signer, within the base fee of the signatures it carries.
    */
   async approveProposal (proposalId, { memo, autoExecute } = {}) {
     const index = this._toProposalIndex(proposalId)
@@ -404,7 +416,7 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
     const bundle = await this._coordinator?.getProposal(index.toString())
 
     if (bundle) {
-      const { approvers, executes } =
+      const { approvers, executes, feePayer, baseFee, fee } =
         await this._decodeBundle(bundle, multisig.address, proposal.address)
       const twice = approvers.find((member, at) => approvers.indexOf(member) !== at)
 
@@ -421,9 +433,11 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
       }
 
       const { approveMaxFee } = this._config
-      const quoted = approveMaxFee === undefined ? null : await this._quoteMessage(bundle)
+      const ceiling = approveMaxFee === undefined
+        ? (feePayer === signerAddress ? baseFee : fee)
+        : BigInt(approveMaxFee)
 
-      if (quoted !== null && quoted > BigInt(approveMaxFee)) {
+      if (fee > ceiling) {
         throw new MaximumFeeExceededError('Exceeded maximum fee cost for the approve operation.')
       }
 
@@ -437,7 +451,7 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
       )
 
       const transactionResult = complete
-        ? await this._sendSignedTransaction(signed, quoted ?? await this._quoteMessage(signed))
+        ? await this._sendSignedTransaction(signed, await this._quoteMessage(signed))
         : undefined
       const gathered = approvers.filter((member) => signed.signatures[member])
 
@@ -487,7 +501,7 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
 
   /** @private */
   async _decodeBundle (bundle, multisigAddress, proposalAddress) {
-    const { instructions, staticAccounts, addressTableLookups } =
+    const { header, instructions, staticAccounts, addressTableLookups } =
       getCompiledTransactionMessageDecoder().decode(bundle.messageBytes)
     const lookups = addressTableLookups ?? []
     const accounts = [...staticAccounts]
@@ -519,13 +533,32 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
     const named = (instruction, slot) => accounts[instruction.accountIndices?.[slot]]
     const approvers = []
     let executes = false
+    let price = 0n
+    let units = null
 
     for (const instruction of instructions) {
       const program = accounts[instruction.programAddressIndex]
 
       if (program !== this._programId) {
+        if (program === COMPUTE_BUDGET_PROGRAM_ADDRESS) {
+          if (this._leads(instruction, getSetComputeUnitPriceDiscriminatorBytes())) {
+            price = this._computeBudgetData(
+              instruction, getSetComputeUnitPriceInstructionDataDecoder(), proposalAddress
+            ).microLamports
+          } else if (this._leads(instruction, getSetComputeUnitLimitDiscriminatorBytes())) {
+            units = BigInt(this._computeBudgetData(
+              instruction, getSetComputeUnitLimitInstructionDataDecoder(), proposalAddress
+            ).units)
+          } else if (this._leads(instruction, getRequestUnitsDiscriminatorBytes())) {
+            throw new ValueError(
+              `The bundle the coordinator holds for the proposal ${proposalAddress} asks for compute units the deprecated way, which carries a fee of its own, and a member signs every instruction in it.`
+            )
+          }
+
+          continue
+        }
+
         if (
-          program === COMPUTE_BUDGET_PROGRAM_ADDRESS ||
           program === MEMO_PROGRAM_ADDRESS ||
           (program === SYSTEM_PROGRAM_ADDRESS && this._leads(instruction, getAdvanceNonceAccountDiscriminatorBytes()))
         ) {
@@ -552,7 +585,27 @@ export default class WalletAccountMultisigSquads extends WalletAccountReadOnlyMu
       }
     }
 
-    return { approvers, executes }
+    const granted = instructions.filter(
+      (instruction) => accounts[instruction.programAddressIndex] !== COMPUTE_BUDGET_PROGRAM_ADDRESS
+    ).length
+    const requested = units ?? BigInt(COMPUTE_UNITS_PER_INSTRUCTION * granted)
+    const budget = requested > MAX_COMPUTE_UNITS ? MAX_COMPUTE_UNITS : requested
+    const baseFee = SIGNATURE_BASE_FEE * BigInt(header.numSignerAccounts)
+    const priorityFee =
+      (price * budget + MICRO_LAMPORTS_PER_LAMPORT - 1n) / MICRO_LAMPORTS_PER_LAMPORT
+
+    return { approvers, executes, feePayer: staticAccounts[0], baseFee, fee: baseFee + priorityFee }
+  }
+
+  /** @private */
+  _computeBudgetData (instruction, decoder, proposalAddress) {
+    if (instruction.data.length !== decoder.fixedSize) {
+      throw new ValueError(
+        `The bundle the coordinator holds for the proposal ${proposalAddress} carries a compute budget instruction this account cannot read, and a member signs every instruction in it.`
+      )
+    }
+
+    return decoder.decode(instruction.data)
   }
 
   /** @private */
