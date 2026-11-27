@@ -368,7 +368,7 @@ describe('coordinators', () => {
       // fee. 1.4M units at 10 lamports each is 14,000,000 lamports, against a ceiling of 1,000,000.
       transport.set(proposalId, getTransactionEncoder().encode(await compileBundle(rpc, {
         multisigPda,
-        feePayer: signers[1],
+        feePayer: signers[0],
         approvers: [signers[0], signers[1]],
         transactionIndex: BigInt(proposalId),
         padding: PRIORITY_INSTRUCTIONS

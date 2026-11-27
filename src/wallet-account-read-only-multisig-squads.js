@@ -117,7 +117,7 @@ import { getProgramDerivedAddressSync } from './helpers/program-derived-address.
  * @property {string} [rentPayer] - The account charged for the rent the multisig, transaction and proposal accounts lock up (default: the signer). It must sign the transaction by other means, which nothing in this package currently provides.
  * @property {number | bigint} [createMaxFee] - The maximum fee amount for the create/deploy operation.
  * @property {number | bigint} [transferMaxFee] - The maximum fee amount for transfers.
- * @property {number | bigint} [approveMaxFee] - The maximum fee amount for approving through a coordinator, quoted before the member signs. A coordinator compiles the bundle, so it fixes the priority fee that vote carries.
+ * @property {number | bigint} [approveMaxFee] - The maximum fee amount for approving through a coordinator, computed from the bundle's own compute budget before the member signs. A coordinator compiles the bundle, so it fixes the priority fee that vote carries. It is checked only when the member is the bundle's fee payer, and such a bundle must then name a compute unit limit when it sets a priority price; when unset, the fee is not checked.
  */
 
 /** @typedef {MultisigSquadsWalletReadOnlyConfig & MultisigSquadsWalletSigningConfig} MultisigSquadsWalletConfig */
